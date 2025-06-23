@@ -1,15 +1,29 @@
-module type distribution = {
-  type t
-  val rand : i64 -> t
+import "../../diku-dk/cpprandom/random"
+
+module type cbrng_distribution = {
+  module engine: rng_engine
+  module num: numeric
+
+  type distribution
+
+  val rand : distribution -> i32 -> num.t
 }
 
-module rademacher (R: real) (S: {val seed : i64}) : distribution with t = R.t = {
-  type t = R.t
+module rademacher_distribution (D: real) (E: rng_engine) (S: {val seed : i32})
+  : cbrng_distribution
+    with num.t = D.t
+    with engine.rng = E.rng
+    with distribution = () = {
+  module engine = E
+  module num = D
 
-  def rand i =
-    -- TODO: utilize an actual random algorithm.
-    let cond = S.seed + i |> i64.get_bit 0 |> (==) 1i32
+  type distribution = ()
+
+  def rand _ i =
+    let rng = E.rng_from_seed [S.seed + i]
+    let (_, x) = E.rand rng
+    let cond = (E.int.get_bit 0 x) |> (==) 0i32
     in if cond
-       then (R.i64 (-1i64))
-       else (R.i64 1i64)
+       then D.i32 1i32 |> D.neg
+       else D.i32 1i32
 }
