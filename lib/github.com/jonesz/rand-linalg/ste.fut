@@ -6,7 +6,7 @@ module type ste = {
 }
 
 -- The naive Girard-Hutchinson trace estimator.
-module hutchinson (R: real) : ste = {
+module hutchinson (R: real) : ste with t = R.t = {
   type t = R.t
 
   def dotprod [n] (a: [n]t) (b: [n]t) : t =

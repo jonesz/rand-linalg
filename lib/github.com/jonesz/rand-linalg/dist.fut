@@ -3,7 +3,7 @@ module type distribution = {
   val rand : i64 -> t
 }
 
-module rademacher (R: real) (S: {val seed : i64}) : distribution = {
+module rademacher (R: real) (S: {val seed : i64}) : distribution with t = R.t = {
   type t = R.t
 
   def rand i =
