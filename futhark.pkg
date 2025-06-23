@@ -1,0 +1,6 @@
+package github.com/jonesz/rand-linalg
+
+require {
+  github.com/diku-dk/linalg 0.6.0 #39eff097509db88ec82bcf9316186d3a147080a6
+  github.com/diku-dk/cpprandom 1.4.0 #b51d96d3f6e4cd84e3ef91a1b59dba6b2a9eb756
+}
