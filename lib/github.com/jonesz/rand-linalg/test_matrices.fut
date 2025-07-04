@@ -16,3 +16,12 @@ def expDecay R n q : [n][n]f32 =
   let p_elem = map (\i -> f32.i64 i |> (*) q |> f32.neg |> (**) 10f32) (1...n - R)
   in r_elem ++ p_elem :> [n]f32
   |> L.todiag
+
+-- Examples from `Tro20-Randomized-Algorithms-LN.pdf`.
+def polyDecaySlow R n = polyDecay R n 0.5_f32
+def polyDecayMed R n = polyDecay R n 1.0_f32
+def polyDecayFast R n = polyDecay R n 2.0_f32
+
+def expDecaySlow R n = expDecay R n 0.01_f32
+def expDecayMed R n = expDecay R n 0.1_f32
+def expDecayFast R n = expDecay R n 0.5_f32
