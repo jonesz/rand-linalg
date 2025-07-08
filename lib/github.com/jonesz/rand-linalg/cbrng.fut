@@ -20,7 +20,14 @@ module squares32 : cbrng_engine with t = u32 with k = i64 = {
   type t = u32
   type k = i64
 
+  -- http://stackoverflow.com/a/12996028
+  local def hash (x: i64) : i64 =
+    let x = (x ^ (x >> 16)) * 0x45d9f3b
+    let x = (x ^ (x >> 16)) * 0x45d9f3b
+    in x ^ (x >> 16)
+
   def rand key ctr =
+    let key = hash key
     let round x b =
       let shift a = (a >> 32) | (a << 32)
       in (i64.**) x 2 |> (+) b |> shift
