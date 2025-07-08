@@ -4,9 +4,9 @@ import "ste"
 import "dist"
 import "test_matrices"
 import "../../diku-dk/linalg/linalg"
-import "../../diku-dk/cpprandom/random"
+import "cbrng"
 
-module D = rademacher_distribution f32 u32 minstd_rand {def seed = 06041995i32}
+module D = rademacher_distribution f32 u32 (squares32 {def key = 7i64})
 module H = hutchinson f32
 module L = mk_linalg f32
 
@@ -14,20 +14,20 @@ def tr [n] (A: [n][n]f32) = map (\i -> A[i][i]) (iota n) |> reduce (+) 0f32
 
 -- ==
 -- entry: test_hutchinson_polyDecaySlow
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_polyDecaySlow R n m =
   map2 (\R_i n_i ->
           let A = polyDecaySlow R_i n_i
           let matvec x = L.matvecmul_row A x
-          in (f32.-) (H.ste m D.rand matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001__f32)
+          in (f32.-) (H.ste m D.rand matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
        R
        n
   |> and
 
 -- ==
 -- entry: test_hutchinson_polyDecayMed
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_polyDecayMed R n m =
   map2 (\R_i n_i ->
@@ -40,7 +40,7 @@ entry test_hutchinson_polyDecayMed R n m =
 
 -- ==
 -- entry: test_hutchinson_polyDecayFast
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_polyDecayFast R n m =
   map2 (\R_i n_i ->
@@ -51,9 +51,9 @@ entry test_hutchinson_polyDecayFast R n m =
        n
   |> and
 
--- -- ==
+-- ==
 -- entry: test_hutchinson_expDecaySlow
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_expDecaySlow R n m =
   map2 (\R_i n_i ->
@@ -64,9 +64,9 @@ entry test_hutchinson_expDecaySlow R n m =
        n
   |> and
 
--- -- ==
+-- ==
 -- entry: test_hutchinson_expDecayMed
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_expDecayMed R n m =
   map2 (\R_i n_i ->
@@ -77,9 +77,9 @@ entry test_hutchinson_expDecayMed R n m =
        n
   |> and
 
--- -- ==
+-- ==
 -- entry: test_hutchinson_expDecayFast
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1 }
+-- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
 entry test_hutchinson_expDecayFast R n m =
   map2 (\R_i n_i ->
