@@ -11,22 +11,33 @@ module type cbrng_distribution = {
   -- | The dynamic configuration of the distribution.
   type distribution
 
-  -- | Generate a random number given the distributional parameters and the counter.
-  val rand : distribution -> i64 -> num.t
+  -- | A constructed configured distribution.
+  type configuration
+
+  -- | Construct a distribution given a key and a distribution.
+  val construct : engine.k -> distribution -> configuration
+
+  -- | Generate a random number given the the counter.
+  val rand : configuration -> i64 -> num.t
 }
 
-module rademacher_distribution (D: numeric) (I: integral) (E: cbrng_engine with t = I.t)
+module rademacher_distribution (D: numeric) (I: integral) (K: integral) (E: cbrng_engine with t = I.t with k = K.t)
   : cbrng_distribution
+    with configuration = K.t
+    with distribution = ()
     with num.t = D.t
-    with distribution = () = {
+    with engine.k = K.t = {
   module engine = E
   module num = D
 
   type distribution = ()
+  type configuration = K.t
 
-  def rand _ ctr =
+  def construct k _ = k
+
+  def rand k ctr =
     -- If the underlying RNG is uniform, then the last bit will set 1/2 of the time.
-    if E.rand ctr |> I.get_bit 0 |> (==) 0i32
+    if E.rand k ctr |> I.get_bit 0 |> (==) 0i32
     then D.i32 1i32
     else D.i32 1i32 |> D.neg
 }
