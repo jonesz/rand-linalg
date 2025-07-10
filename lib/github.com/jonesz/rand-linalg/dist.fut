@@ -23,9 +23,9 @@ module type cbrng_distribution = {
 
 module rademacher_distribution (D: numeric) (I: integral) (K: integral) (E: cbrng_engine with t = I.t with k = K.t)
   : cbrng_distribution
-    with configuration = K.t
-    with distribution = ()
     with num.t = D.t
+    with distribution = ()
+    with configuration = K.t
     with engine.k = K.t = {
   module engine = E
   module num = D
@@ -49,9 +49,9 @@ module normal_distribution
   (K: integral)
   (E: cbrng_engine with t = I.t with k = K.t)
   : cbrng_distribution
-    with num.t = R.t
-    with engine.k = K.t
     with distribution = {mean: R.t, stddev: R.t}
+    with engine.k = K.t
+    with num.t = R.t
     with configuration = (K.t, {mean: R.t, stddev: R.t}) = {
   def to_R (x: E.t) =
     R.u64 (u64.i64 (I.to_i64 x))
@@ -70,7 +70,6 @@ module normal_distribution
   def rand (key: K.t, {mean, stddev}: distribution) ctr =
     let k1 = key
     let k2 = (K.+) key (K.i64 1337i64)
-
     -- Straight port from `diku-dk/cpprandom/random.fut`.
     -- Box-Muller where we only use one of the generated points.
     let u1 = E.rand k1 ctr
