@@ -1,7 +1,11 @@
 -- | ignore
 
 import "../../diku-dk/linalg/linalg"
+import "cbrng"
+import "dist"
+
 module L = mk_linalg f32
+module N = normal_distribution f32 u32 i64 squares32
 
 -- k_ij = exp(-||x_i - x_j||^2 / 2h)
 def rbfKernel 't [n] (p: [n]t) h =
@@ -12,11 +16,15 @@ def rbfKernel 't [n] (p: [n]t) h =
       (iota n)
 
 -- A = diag(1,...,1_R,0,...,0(n-R)) + e/(4n)GG^T; where G is G(0, I_n).
-def lowRankNoise rng R n e : [n][n]f32 =
+def lowRankNoise seed R n e : [n][n]f32 =
   let r_elem = replicate R 1_f32
-  let p_elem = replicate (R - n) 0_f32
+  let p_elem = replicate (n - R) 0_f32
   let d = L.todiag (r_elem ++ p_elem :> [n]f32)
-  in ???
+  let dist = N.construct seed {mean = 0f32, stddev = 1f32}
+  let G: [n][n]f32 = map (\i -> map (\j -> N.rand dist (i * n + j)) (iota n)) (iota n)
+  let noise = L.matmul G (transpose G)
+  let scale = e / (n * 4_i64 |> f32.i64)
+  in L.matscale scale noise |> L.matadd d
 
 -- A = diag(1,...,1_R,2^{-p},...,(n-R+1)^{-p})
 def polyDecay R n p : [n][n]f32 =
@@ -33,9 +41,9 @@ def expDecay R n q : [n][n]f32 =
   |> L.todiag
 
 -- Examples from `Tro20-Randomized-Algorithms-LN.pdf`.
-def lowRankLowNoise rng R n = lowRankNoise rng R n 0.005_f32
-def lowRankMedNoise rng R n = lowRankNoise rng R n 0.05_f32
-def lowRankHiNoise rng R n = lowRankNoise rng R n 0.5_f32
+def lowRankLowNoise seed R n = lowRankNoise seed R n 0.005_f32
+def lowRankMedNoise seed R n = lowRankNoise seed R n 0.05_f32
+def lowRankHiNoise seed R n = lowRankNoise seed R n 0.5_f32
 
 def polyDecaySlow R n = polyDecay R n 0.5_f32
 def polyDecayMed R n = polyDecay R n 1.0_f32
