@@ -5,6 +5,10 @@ module type ste = {
   val ste [n] : (m: i64) -> (rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
 }
 
+-- Generate a random vector for the given `m` iteration.
+local def r_vec 't [n] rand (m: i64) : [n]t =
+  map (\i -> m * n + i |> rand) (iota n)
+
 -- The naive Girard-Hutchinson trace estimator.
 module hutchinson (R: real)
   : ste
@@ -18,8 +22,7 @@ module hutchinson (R: real)
   def ste [n] m rand matvec =
     let r_vec ctr = map (\i -> (+) i ctr |> rand) (iota n)
     in map (\m_i ->
-              let w =
-                (*) n m_i |> r_vec
+              let w = r_vec m_i
               in matvec w |> dotprod w)
            (iota m)
        |> reduce (R.+) (R.i64 0i64)
