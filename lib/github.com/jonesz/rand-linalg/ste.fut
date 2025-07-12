@@ -2,18 +2,14 @@
 
 module type ste = {
   type t
-  type dist
-
   val ste [n] : (m: i64) -> (rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
 }
 
 -- The naive Girard-Hutchinson trace estimator.
 module hutchinson (R: real)
   : ste
-    with t = R.t
-    with dist = () = {
+    with t = R.t = {
   type t = R.t
-  type dist = ()
 
   def dotprod [n] (a: [n]t) (b: [n]t) : t =
     -- TODO: This should be a conjugate transpose...
