@@ -14,6 +14,18 @@ module L = mk_linalg f32
 def tr [n] (A: [n][n]f32) = map (\i -> A[i][i]) (iota n) |> reduce (+) 0f32
 
 -- ==
+-- entry: test_matmul_w_matvec
+-- random input { [100][10][10]f32 [100][10][3]f32 }
+-- output { true }
+entry test_matmul_w_matvec A B =
+	map2 (\A_i B_i ->
+		let j = L.matmul A_i B_i |> flatten
+		let k = matmul_w_matvec (L.matvecmul_row A_i) B_i |> flatten
+		in map2 (==) j k
+		|> and)
+	A B |> and
+
+-- ==
 -- entry: test_hutchinson_polyDecaySlow
 -- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
 -- output { true }
