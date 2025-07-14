@@ -6,12 +6,33 @@ import "test_matrices"
 import "../../diku-dk/linalg/linalg"
 import "cbrng"
 
-def sleeve = 19950406i64
-module D = rademacher_distribution f32 u32 i64 squares32
-module H = hutchinson f32
-module L = mk_linalg f32
+module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
+	module L = mk_linalg R
+	module D = rademacher_distribution R u32 i64 squares32
 
-def tr [n] (A: [n][n]f32) = map (\i -> A[i][i]) (iota n) |> reduce (+) 0f32
+	def tr [n] (A: [n][n]R.t) =
+		map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
+
+	-- | Variance for the Rademacher test vector.
+	def var [n] (A: [n][n]R.t) (m: i64) =
+		let f_sq = map (\i -> (R.**) i (R.i64 2)) (flatten A) |> reduce (R.+) (R.i64 0)
+		let d_sq = map (\i -> (R.**) A[i][i] (R.i64 2)) (iota n) |> reduce (R.+) (R.i64 0)
+		in (R.-) f_sq d_sq |> flip (R./) (R.i64 m)
+
+	-- | P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
+	def chebyshev_bound A t (s: i64) =
+		let bot = tr A |> flip (R.**) (R.i64 2) |> (R.*) ((R.**) t (R.i64 2)) |> (R.*) (R.i64 s)
+		in var A s |> flip (R./) bot
+			
+	def test [n] (A: [n][n]R.t) m seed =
+		let matvec = L.matvecmul_row A
+		let est_tr = S.ste m (D.rand (D.construct seed ())) matvec
+		let act_tr = tr A
+		let bound = chebyshev_bound A (R.f32 0.0001_f32) m
+		in (R.-) est_tr act_tr |> R.abs |> (R.>=) bound
+}
+
+module H = mk_chebyshev_rademacher_test f32 (hutchinson f32)
 
 -- ==
 -- entry: test_matmul_w_matvec
@@ -25,86 +46,57 @@ entry test_matmul_w_matvec A B =
 		|> and)
 	A B |> and
 
--- ==
--- entry: test_hutchinson_polyDecaySlow
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_polyDecaySlow_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecaySlow R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = polyDecaySlow R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_polyDecaySlow_chebyshev seed R n m =
+	H.test (polyDecaySlow R n) m seed
 
 -- ==
--- entry: test_hutchinson_polyDecayMed
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_polyDecayMed_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecayMed R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = polyDecayMed R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_polyDecayMed_chebyshev seed R n m =
+	H.test (polyDecayMed R n) m seed
 
 -- ==
--- entry: test_hutchinson_polyDecayFast
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_polyDecayFast_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecayFast R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = polyDecayFast R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_polyDecayFast_chebyshev seed R n m =
+	H.test (polyDecayFast R n) m seed
 
 -- ==
--- entry: test_hutchinson_expDecaySlow
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_expDecaySlow_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecaySlow R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = expDecaySlow R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_expDecaySlow_chebyshev seed R n m =
+	H.test (expDecaySlow R n) m seed
 
 -- ==
--- entry: test_hutchinson_expDecayMed
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_expDecayMed_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayMed R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = expDecayMed R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_expDecayMed_chebyshev seed R n m =
+	H.test (expDecayMed R n) m seed
 
 -- ==
--- entry: test_hutchinson_expDecayFast
--- input { [1i64, 10i64, 1000i64] [10i64, 100i64, 10000i64] 1i64 }
+-- entry: test_hutchinson_expDecayFast_chebyshev
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayFast R n m =
-  let dist = D.construct sleeve ()
-  in map2 (\R_i n_i ->
-             let A = expDecayFast R_i n_i
-             let matvec x = L.matvecmul_row A x
-             in (f32.-) (H.ste m (D.rand dist) matvec) (tr A) |> f32.abs |> (f32.>=) 0.000001_f32)
-          R
-          n
-     |> and
+entry test_hutchinson_expDecayFast_chebyshev seed R n m =
+	H.test (expDecayFast R n) m seed
+
+-- ==
+-- entry: test_hutchinson_lowRankLowNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 10i64 }
+-- compiled random input { i64 90i64 100i64 10i64 }
+-- output { true }
+entry test_hutchinson_lowRankLowNoise_chebyshev seed R n m =
+	H.test (lowRankLowNoise (seed + 1) R n) m seed
