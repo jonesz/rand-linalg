@@ -107,3 +107,19 @@ entry test_hutchinson_expDecayFast_chebyshev seed R n m =
 -- output { true }
 entry test_hutchinson_lowRankLowNoise_chebyshev seed R n m =
 	H.test (T.lowRankLowNoise (seed + 1) R n) m seed
+
+-- ==
+-- entry: test_hutchinson_lowRankMedNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 10i64 }
+-- compiled random input { i64 90i64 100i64 100i64 }
+-- output { true }
+entry test_hutchinson_lowRankMedNoise_chebyshev seed R n m =
+	H.test (T.lowRankMedNoise (seed + 1) R n) m seed
+
+-- ==
+-- entry: test_hutchinson_lowRankHiNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 10i64 }
+-- compiled random input { i64 90i64 100i64 100i64 }
+-- output { true }
+entry test_hutchinson_lowRankHiNoise_chebyshev seed R n m =
+	H.test (T.lowRankHiNoise (seed + 1) R n) m seed
