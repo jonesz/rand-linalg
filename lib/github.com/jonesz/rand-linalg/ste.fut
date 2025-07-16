@@ -1,59 +1,47 @@
---| Stochastic Trace Estimation.
-
+-- | Routines for computing a stochastic trace estimation.
 import "../../diku-dk/linalg/linalg"
 import "../../diku-dk/linalg/qr"
 
-module type ste = {
-  type t
-
-  val ste [n] : (s: i64) -> (rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
-}
-
-module type bootstrap_ste = {
-  include ste
-  type ci = (t, t)
-
-  val ste_bootstrap [n] : (s: i64) -> (rand: i64 -> t)  -> (matvec: [n]t -> [n]t) -> (a: f32) -> (B: i64) -> ci
-}
-
--- Generate a random vector for a specific iteration.
-local def r_vec 't [n] (rand: i64 -> t) (iter: i64) : [n]t =
-  map (\i -> (iter * n) + i |> rand) (iota n)
-
+-- | Given a primitive `Aw = u`, compute `AX = B`.
 def matmul_w_matvec [n][m] 't (matvec: [n]t -> [n]t) (X: [n][m]t) =
     map (matvec) (transpose X) |> transpose
 
--- The naive Girard-Hutchinson trace estimator.
+module type ste = {
+  -- | The underlying scalar type of the matrix.
+  type t
+  -- | Estimate a trace.
+  val ste [n] : (s: i64) -> (rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
+}
+
+-- | The Monte Carlo Girard-Hutchinson trace estimator.
 module hutchinson (R: real)
-  : bootstrap_ste
+  : ste
     with t = R.t = {
 
   type t = R.t
-  type ci = (t, t)
 
-  def sample [n] iter rand (matvec: [n]t -> [n]t) =
+  -- | Compute a single sample `X_i = w_i*(Aw_i)`.
+  def sample i rand matvec =
+    -- TODO: There should be a conjugate transpose here.
     let dotprod a b =
-      -- TODO: This should be a conjugate transpose.
       map2 (R.*) a b |> reduce (R.+) (R.i64 0)
 
+    let r_vec [n] i rand =
+      map (\j -> i * n + j |> rand) (iota n)
+    
     -- `X = w*(Aw)`.
-    let w = r_vec rand iter
+    let w = r_vec i rand
     in matvec w |> dotprod w
-
+    
   -- | Form the Monte Carlo trace estimate `X_hat_s = 1/s * sum(X_i)`.
   def mcte [s] (samples: [s]t) =
     reduce (R.+) (R.i64 0) samples |> flip (R./) (R.i64 s)
 
-  def ste s rand matvec = map (\iter -> sample iter rand matvec) (iota s) |> mcte
-
-  def ste_bootstrap s rand matvec a B =
-    let samples = map (\iter -> sample iter rand matvec) (iota s)
-    let X_hat_s = mcte samples
-
-    in ???
+  -- | Estimate the trace.
+  def ste s rand matvec = map (\i -> sample i rand matvec) (iota s) |> mcte
 }
 
--- https://arxiv.org/pdf/2010.09649
+-- | The adaptive Hutch++ algorithm presented in https://arxiv.org/pdf/2010.09649
 module hutchplusplus (R: real)
   : ste
     with t = R.t = {
@@ -61,6 +49,10 @@ module hutchplusplus (R: real)
 
   module L = mk_linalg R
   module QR = mk_gram_schmidt R
+
+  -- Generate a random vector for a specific iteration.
+  local def r_vec 't [n] (rand: i64 -> t) (iter: i64) : [n]t =
+    map (\i -> (iter * n) + i |> rand) (iota n)
 
   local def tr A =
     L.fromdiag A |> reduce (R.+) (R.i64 0)
