@@ -2,35 +2,36 @@
 import "../../diku-dk/linalg/linalg"
 import "../../diku-dk/linalg/qr"
 
--- | Given a primitive `Aw = u`, compute `AX = B`.
+-- | Given a primitive `w -> Aw`, compute `AX = B`.
 def matmul_w_matvec [n][m] 't (matvec: [n]t -> [n]t) (X: [n][m]t) =
     map (matvec) (transpose X) |> transpose
 
 module type ste = {
   -- | The underlying scalar type of the matrix.
   type t
+
   -- | Estimate a trace.
-  val ste [n] : (s: i64) -> (rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
+  val ste [n] : (samples: i64) -> (cbrng_rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
 }
 
 -- | The Monte Carlo Girard-Hutchinson trace estimator.
 module hutchinson (R: real)
   : ste
     with t = R.t = {
-
   type t = R.t
 
   -- | Compute a single sample `X_i = w_i*(Aw_i)`.
-  def sample i rand matvec =
+  def sample cbrng_rand matvec i =
     -- TODO: There should be a conjugate transpose here.
     let dotprod a b =
       map2 (R.*) a b |> reduce (R.+) (R.i64 0)
 
-    let r_vec [n] i rand =
-      map (\j -> i * n + j |> rand) (iota n)
+    -- Compute the i'th random vector.
+    let r_vec [n] i =
+      map (\j -> i * n + j |> cbrng_rand) (iota n)
     
+    let w = r_vec i
     -- `X = w*(Aw)`.
-    let w = r_vec i rand
     in matvec w |> dotprod w
     
   -- | Form the Monte Carlo trace estimate `X_hat_s = 1/s * sum(X_i)`.
@@ -38,7 +39,8 @@ module hutchinson (R: real)
     reduce (R.+) (R.i64 0) samples |> flip (R./) (R.i64 s)
 
   -- | Estimate the trace.
-  def ste s rand matvec = map (\i -> sample i rand matvec) (iota s) |> mcte
+  def ste samples cbrng_rand matvec =
+    map (sample cbrng_rand matvec) (iota samples) |> mcte
 }
 
 -- | The adaptive Hutch++ algorithm presented in https://arxiv.org/pdf/2010.09649
