@@ -1,4 +1,5 @@
 -- | Routines for computing a stochastic trace estimation.
+import "../cbrng-fut/cbrng"
 import "../../diku-dk/linalg/linalg"
 import "../../diku-dk/linalg/qr"
 
@@ -50,6 +51,7 @@ module hutchplusplus (R: real)
   type t = R.t
 
   module L = mk_linalg R
+  -- TODO: What's the correct QR to work with here?
   module QR = mk_gram_schmidt R
 
   -- Generate a random vector for a specific iteration.

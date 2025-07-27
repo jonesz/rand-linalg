@@ -1,5 +1,6 @@
 lib/github.com/diku-dk/
 lib/github.com/jonesz/rand-linalg/data
+lib/github.com/jonesz/cbrng-fut
 doc/
 TODO.md
 NOTES.md

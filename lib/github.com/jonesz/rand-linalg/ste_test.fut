@@ -1,10 +1,10 @@
 -- | ignore
 
-import "ste"
-import "dist"
-import "test_matrices"
 import "../../diku-dk/linalg/linalg"
-import "cbrng"
+import "../cbrng-fut/cbrng"
+import "../cbrng-fut/distribution"
+import "ste"
+import "test_matrices"
 
 module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
@@ -12,7 +12,8 @@ module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
 
   def ste A m seed =
     let matvec = L.matvecmul_row A
-    in S.ste m (D.rand (D.construct seed ())) matvec
+    let seed = squares32.construct seed
+    in S.ste m (D.rand seed) matvec
 
   def tr [n] (A: [n][n]R.t) =
     map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
