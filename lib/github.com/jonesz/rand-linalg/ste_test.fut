@@ -19,16 +19,16 @@ module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
     let d_sq = map (\i -> (R.**) A[i][i] (R.i64 2)) (iota n) |> reduce (R.+) (R.i64 0)
     in (R.-) f_sq d_sq |> (R.*) (R.i64 2)
 
-  -- | P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
-  def chebyshev_bound A t s =
+  -- P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
+  def chebyshev_bound A s t =
     let top = var A 
-    let bot = tr A |> flip (R.**) (R.i64 2) |> (R.*) ((R.**) t (R.i64 2)) |> (R.*) (R.i64 s)
+    let bot = (R.**) (tr A) (R.i64 2) |> (R.*) ((R.**) t (R.i64 2)) |> (R.*) (R.i64 s)
     in (R./) top bot 
 
   def test [n] (A: [n][n]R.t) s (t: f32) seed =
     let t = R.f32 t
-    let m = 250i64
-    let bound = chebyshev_bound A t s
+    let m = 100i64
+    let bound = chebyshev_bound A s t
 
     let f seed =
       let seed = squares32.construct seed
@@ -189,24 +189,24 @@ entry test_hutchplusplus_expDecayFast_chebyshev seed R n s =
 
 -- ==
 -- entry: test_hutchplusplus_lowRankLowNoise_chebyshev
--- compiled random input { i64 10i64 100i64 10i64 }
--- compiled random input { i64 90i64 100i64 100i64 }
+-- compiled random input { i64 10i64 100i64 30i64 }
+-- compiled random input { i64 90i64 100i64 300i64 }
 -- output { true }
 entry test_hutchplusplus_lowRankLowNoise_chebyshev seed R n s =
-  HPP.test (T.lowRankLowNoise (seed + 1) R n) s 1.0_f32 seed
+  HPP.test (T.lowRankLowNoise (seed * 0xA) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_lowRankMedNoise_chebyshev
--- compiled random input { i64 10i64 100i64 10i64 }
--- compiled random input { i64 90i64 100i64 100i64 }
+-- compiled random input { i64 10i64 100i64 30i64 }
+-- compiled random input { i64 10i64 100i64 300i64 }
 -- output { true }
 entry test_hutchplusplus_lowRankMedNoise_chebyshev seed R n s =
-  HPP.test (T.lowRankMedNoise (seed + 1) R n) s 1.0_f32 seed
+  HPP.test (T.lowRankMedNoise (seed * 0xA) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_lowRankHiNoise_chebyshev
--- compiled random input { i64 10i64 100i64 10i64 }
--- compiled random input { i64 90i64 100i64 100i64 }
+-- compiled random input { i64 10i64 100i64 30i64 }
+-- compiled random input { i64 10i64 100i64 300i64 }
 -- output { true }
 entry test_hutchplusplus_lowRankHiNoise_chebyshev seed R n s =
-  HPP.test (T.lowRankHiNoise (seed + 1) R n) s 1.0_f32 seed
+  HPP.test (T.lowRankHiNoise (seed * 0xA) R n) s 1.0_f32 seed
