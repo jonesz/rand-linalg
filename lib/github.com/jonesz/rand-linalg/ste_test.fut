@@ -10,32 +10,36 @@ module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
   module D = rademacher_distribution R u32 i64 squares32
 
-  def ste A m seed =
-    let matvec = L.matvecmul_row A
-    let seed = squares32.construct seed
-    in S.ste m (D.rand seed) matvec
+  def ste A s seed = S.ste s (D.rand seed) (L.matvecmul_row A)
+  def tr [n] (A: [n][n]R.t) = map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
 
-  def tr [n] (A: [n][n]R.t) =
-    map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
-
-  -- | Variance for the Rademacher test vector.
-  def var [n] (A: [n][n]R.t) (m: i64) =
+  -- Variance for the Rademacher test vector.
+  def var [n] (A: [n][n]R.t) =
     let f_sq = map (\i -> (R.**) i (R.i64 2)) (flatten A) |> reduce (R.+) (R.i64 0)
     let d_sq = map (\i -> (R.**) A[i][i] (R.i64 2)) (iota n) |> reduce (R.+) (R.i64 0)
-    in (R.-) f_sq d_sq |> flip (R./) (R.i64 m)
+    in (R.-) f_sq d_sq |> (R.*) (R.i64 2)
 
   -- | P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
-  def chebyshev_bound A t (s: i64) =
+  def chebyshev_bound A t s =
+    let top = var A 
     let bot = tr A |> flip (R.**) (R.i64 2) |> (R.*) ((R.**) t (R.i64 2)) |> (R.*) (R.i64 s)
-    in var A s |> flip (R./) bot
+    in (R./) top bot 
 
-  -- TODO: Move the `ste` code here; then place the check for the bound
-  -- in the test function.	tiwd
-  def test [n] (A: [n][n]R.t) m seed =
-    let est_tr = ste A m seed
-    let act_tr = tr A
-    let bound = chebyshev_bound A (R.f32 0.0001_f32) m
-    in (R.-) est_tr act_tr |> R.abs |> (R.>=) bound
+  def test [n] (A: [n][n]R.t) s (t: f32) seed =
+    let t = R.f32 t
+    let m = 250i64
+    let bound = chebyshev_bound A t s
+
+    let f seed =
+      let seed = squares32.construct seed
+      let true_tr = tr A
+      let esti_tr = ste A s seed
+      let left  = (R.-) esti_tr true_tr |> R.abs
+      let right = (R.*) true_tr t
+      in (R.>=) left right |> i64.bool
+ 
+    in map (i64.+ seed) (iota m) |> map f
+      |> reduce (+) 0i64 |> R.i64 |> flip (R./) (R.i64 m) |> flip (R.<=) bound
 }
 
 module H = mk_chebyshev_rademacher_test f64 (hutchinson f64)
@@ -66,72 +70,71 @@ entry test_matmul_w_matvec A B =
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecaySlow_chebyshev seed R n m =
-  H.test (T.polyDecaySlow R n) m seed
+entry test_hutchinson_polyDecaySlow_chebyshev seed R n s =
+  H.test (T.polyDecaySlow R n) s 1.0_f32 seed
 
--- ==
 -- entry: test_hutchinson_polyDecayMed_chebyshev
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecayMed_chebyshev seed R n m =
-  H.test (T.polyDecayMed R n) m seed
+entry test_hutchinson_polyDecayMed_chebyshev seed R n s =
+  H.test (T.polyDecayMed R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_polyDecayFast_chebyshev
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecayFast_chebyshev seed R n m =
-  H.test (T.polyDecayFast R n) m seed
+entry test_hutchinson_polyDecayFast_chebyshev seed R n s =
+  H.test (T.polyDecayFast R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_expDecaySlow_chebyshev
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecaySlow_chebyshev seed R n m =
-  H.test (T.expDecaySlow R n) m seed
+entry test_hutchinson_expDecaySlow_chebyshev seed R n s =
+  H.test (T.expDecaySlow R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_expDecayMed_chebyshev
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayMed_chebyshev seed R n m =
-  H.test (T.expDecayMed R n) m seed
+entry test_hutchinson_expDecayMed_chebyshev seed R n s =
+  H.test (T.expDecayMed R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_expDecayFast_chebyshev
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayFast_chebyshev seed R n m =
-  H.test (T.expDecayFast R n) m seed
+entry test_hutchinson_expDecayFast_chebyshev seed R n s =
+  H.test (T.expDecayFast R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_lowRankLowNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchinson_lowRankLowNoise_chebyshev seed R n m =
-  H.test (T.lowRankLowNoise (seed + 1) R n) m seed
+entry test_hutchinson_lowRankLowNoise_chebyshev seed R n s =
+  H.test (T.lowRankLowNoise (seed + 1) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_lowRankMedNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchinson_lowRankMedNoise_chebyshev seed R n m =
-  H.test (T.lowRankMedNoise (seed + 1) R n) m seed
+entry test_hutchinson_lowRankMedNoise_chebyshev seed R n s =
+  H.test (T.lowRankMedNoise (seed + 1) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchinson_lowRankHiNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchinson_lowRankHiNoise_chebyshev seed R n m =
-  H.test (T.lowRankHiNoise (seed + 1) R n) m seed
+entry test_hutchinson_lowRankHiNoise_chebyshev seed R n s =
+  H.test (T.lowRankHiNoise (seed + 1) R n) s 1.0_f32 seed
 
 -- ~
 -- ~ HUTCHPLUSPLUS TESTS
@@ -141,69 +144,69 @@ entry test_hutchinson_lowRankHiNoise_chebyshev seed R n m =
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_polyDecaySlow_chebyshev seed R n m =
-  HPP.test (T.polyDecaySlow R n) m seed
+entry test_hutchplusplus_polyDecaySlow_chebyshev seed R n s =
+  HPP.test (T.polyDecaySlow R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_polyDecayMed_chebyshev
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_polyDecayMed_chebyshev seed R n m =
-  HPP.test (T.polyDecayMed R n) m seed
+entry test_hutchplusplus_polyDecayMed_chebyshev seed R n s =
+  HPP.test (T.polyDecayMed R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_polyDecayFast_chebyshev
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_polyDecayFast_chebyshev seed R n m =
-  HPP.test (T.polyDecayFast R n) m seed
+entry test_hutchplusplus_polyDecayFast_chebyshev seed R n s =
+  HPP.test (T.polyDecayFast R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_expDecaySlow_chebyshev
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_expDecaySlow_chebyshev seed R n m =
-  HPP.test (T.expDecaySlow R n) m seed
+entry test_hutchplusplus_expDecaySlow_chebyshev seed R n s =
+  HPP.test (T.expDecaySlow R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_expDecayMed_chebyshev
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_expDecayMed_chebyshev seed R n m =
-  HPP.test (T.expDecayMed R n) m seed
+entry test_hutchplusplus_expDecayMed_chebyshev seed R n s =
+  HPP.test (T.expDecayMed R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_expDecayFast_chebyshev
 -- compiled random input { i64 10i64 100i64 3i64 }
 -- compiled random input { i64 90i64 100i64 3i64 }
 -- output { true }
-entry test_hutchplusplus_expDecayFast_chebyshev seed R n m =
-  HPP.test (T.expDecayFast R n) m seed
+entry test_hutchplusplus_expDecayFast_chebyshev seed R n s =
+  HPP.test (T.expDecayFast R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_lowRankLowNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchplusplus_lowRankLowNoise_chebyshev seed R n m =
-  HPP.test (T.lowRankLowNoise (seed + 1) R n) m seed
+entry test_hutchplusplus_lowRankLowNoise_chebyshev seed R n s =
+  HPP.test (T.lowRankLowNoise (seed + 1) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_lowRankMedNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchplusplus_lowRankMedNoise_chebyshev seed R n m =
-  HPP.test (T.lowRankMedNoise (seed + 1) R n) m seed
+entry test_hutchplusplus_lowRankMedNoise_chebyshev seed R n s =
+  HPP.test (T.lowRankMedNoise (seed + 1) R n) s 1.0_f32 seed
 
 -- ==
 -- entry: test_hutchplusplus_lowRankHiNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
-entry test_hutchplusplus_lowRankHiNoise_chebyshev seed R n m =
-  HPP.test (T.lowRankHiNoise (seed + 1) R n) m seed
+entry test_hutchplusplus_lowRankHiNoise_chebyshev seed R n s =
+  HPP.test (T.lowRankHiNoise (seed + 1) R n) s 1.0_f32 seed

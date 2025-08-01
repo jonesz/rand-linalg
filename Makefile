@@ -8,7 +8,7 @@ TEST = \
 all: test
 
 test: $(TEST) $(SRC)
-	futhark test $<
+	futhark test --backend=multicore $<
 
 .PHONY: doc clean
 
