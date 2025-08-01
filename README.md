@@ -11,7 +11,8 @@ $ futhark pkg sync
 
 ## References
 
-Significant code is based off of Tropp's Winter 2020 *Randomized Algorithms for Matrix Computations*.
+Significant code is based off of Tropp's Winter 2020
+ [*Randomized Algorithms for Matrix Computations*](https://tropp.caltech.edu/notes/Tro20-Randomized-Algorithms-LN.pdf).
 
 | Algorithm | Source |
 | --------- | ------ |
