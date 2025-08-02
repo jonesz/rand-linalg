@@ -6,6 +6,22 @@ import "../cbrng-fut/distribution"
 import "ste"
 import "test_matrices"
 
+-- 
+module mk_eps_test (R: real) (S: ste with t = R.t) = {
+  module L = mk_linalg R
+  module D = rademacher_distribution R u32 i64 squares32 
+
+  def tr [n] (A: [n][n]R.t) = map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
+
+  def test seed A s =
+    let eps = R.f32 0.001_f32
+    let seed = squares32.construct seed
+
+    let exp_tr = tr A
+    let est_tr = H.ste s (D.rand seed) (L.matvecmul A)
+    in (f32.-) exp_tr est_tr |> f32.abs |> (f32.<=) eps 
+}
+
 module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
   module D = rademacher_distribution R u32 i64 squares32
@@ -42,10 +58,11 @@ module mk_chebyshev_rademacher_test (R: real) (S: ste with t = R.t) = {
       |> reduce (+) 0i64 |> R.i64 |> flip (R./) (R.i64 m) |> flip (R.<=) bound
 }
 
-module H = mk_chebyshev_rademacher_test f64 (hutchinson f64)
-module HPP = mk_chebyshev_rademacher_test f64 (hutchplusplus f64)
-
-module T = tm f64
+module H = hutchinson f32
+module HPP = hutchplusplus f32
+module HE = mk_eps_tes f32 H
+module HPPC = mk_chebyshev_rademacher_test f32 HPP
+module T = tm f32
 module L = mk_linalg f32
 
 -- ==
@@ -66,51 +83,57 @@ entry test_matmul_w_matvec A B =
 -- ~~ HUTCHINSON TESTS
 -- ~~
 
--- entry: test_hutchinson_polyDecaySlow_chebyshev
+-- entry: test_hutchinson_polyDecaySlow_eps
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecaySlow_chebyshev seed R n s =
-  H.test (T.polyDecaySlow R n) s 1.0_f32 seed
+entry test_hutchinson_polyDecaySlow_eps seed R n s =
+  let A = T.polyDecaySlow R n
+  in HE.test seed A s
 
--- entry: test_hutchinson_polyDecayMed_chebyshev
+-- entry: test_hutchinson_polyDecayMed_eps
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_polyDecayMed_chebyshev seed R n s =
-  H.test (T.polyDecayMed R n) s 1.0_f32 seed
-
--- ==
--- entry: test_hutchinson_polyDecayFast_chebyshev
--- compiled random input { i64 10i64 100i64 1i64 }
--- compiled random input { i64 90i64 100i64 1i64 }
--- output { true }
-entry test_hutchinson_polyDecayFast_chebyshev seed R n s =
-  H.test (T.polyDecayFast R n) s 1.0_f32 seed
+entry test_hutchinson_polyDecayMed_eps seed R n s =
+  let A = T.polyDecayMed R n
+  in HE.test seed A s
 
 -- ==
--- entry: test_hutchinson_expDecaySlow_chebyshev
+-- entry: test_hutchinson_polyDecayFast_eps
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecaySlow_chebyshev seed R n s =
-  H.test (T.expDecaySlow R n) s 1.0_f32 seed
+entry test_hutchinson_polyDecayFast_eps seed R n s =
+  let A = T.polyDecayFast R n
+  in HE.test seed A s
 
 -- ==
--- entry: test_hutchinson_expDecayMed_chebyshev
+-- entry: test_hutchinson_expDecaySlow_eps
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayMed_chebyshev seed R n s =
-  H.test (T.expDecayMed R n) s 1.0_f32 seed
+entry test_hutchinson_expDecaySlow_eps seed R n s =
+  let A = T.expDecaySlow R n
+  in HE.test seed A s
 
 -- ==
--- entry: test_hutchinson_expDecayFast_chebyshev
+-- entry: test_hutchinson_expDecayMed_eps
 -- compiled random input { i64 10i64 100i64 1i64 }
 -- compiled random input { i64 90i64 100i64 1i64 }
 -- output { true }
-entry test_hutchinson_expDecayFast_chebyshev seed R n s =
-  H.test (T.expDecayFast R n) s 1.0_f32 seed
+entry test_hutchinson_expDecayMed_eps seed R n s =
+  let A = T.expDecayMed R n
+  in HE.test seed A s
+
+-- ==
+-- entry: test_hutchinson_expDecayFast_eps
+-- compiled random input { i64 10i64 100i64 1i64 }
+-- compiled random input { i64 90i64 100i64 1i64 }
+-- output { true }
+entry test_hutchinson_expDecayFast_eps seed R n s =
+  let A = T.expDecayFast R n
+  in HE.test seed A s
 
 -- ==
 -- entry: test_hutchinson_lowRankLowNoise_chebyshev

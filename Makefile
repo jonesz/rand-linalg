@@ -3,7 +3,7 @@ SRC= \
 	lib/github.com/jonesz/rand-linalg/test_matrices.fut
 
 TEST = \
-	lib/github.com/jonesz/rand-linalg/ste_test.fut
+	lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal.fut
 
 all: test
 
@@ -17,8 +17,8 @@ doc:
 
 clean:
 	$(RM) -rf doc/
-	$(RM) lib/github.com/jonesz/rand-linalg/*.c
-	$(RM) lib/github.com/jonesz/rand-linalg/*.expected
-	$(RM) lib/github.com/jonesz/rand-linalg/*.actual
-	$(RM) lib/github.com/jonesz/rand-linalg/ste_test
+	$(RM) lib/github.com/jonesz/rand-linalg/test/*.c
+	$(RM) lib/github.com/jonesz/rand-linalg/test/*.expected
+	$(RM) lib/github.com/jonesz/rand-linalg/test/*.actual
+	$(RM) lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal
 
