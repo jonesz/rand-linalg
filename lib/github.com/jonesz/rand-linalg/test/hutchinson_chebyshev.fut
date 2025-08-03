@@ -15,7 +15,7 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   module D = rademacher_distribution R u32 i64 squares32
 
   def ste A s seed = S.ste s (D.rand seed) (L.matvecmul_row A)
-  def tr [n] (A: [n][n]R.t) = map (\i -> A[i][i]) (iota n) |> reduce (R.+) (R.i64 0)
+  def tr A = L.fromdiag A |> reduce (R.+) (R.i64 0)
 
   -- Variance for the Rademacher test vector.
   def var [n] (A: [n][n]R.t) =
@@ -53,13 +53,16 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
 module HC = mk_chebyshev_rademacher f32 (hutchinson f32)
 module T = tm f32
 
+-- The trace estimator should be within 5% of the actual trace.
+def t = 0.05_f32
+
 -- ==
 -- entry: test_hutchinson_lowRankLowNoise_chebyshev
 -- compiled random input { i64 10i64 100i64 10i64 }
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
 entry test_hutchinson_lowRankLowNoise_chebyshev seed R n s =
-  HC.test (T.lowRankLowNoise (seed + 1) R n) s 1.0_f32 seed
+  HC.test (T.lowRankLowNoise (seed + 1) R n) s t seed
 
 -- ==
 -- entry: test_hutchinson_lowRankMedNoise_chebyshev
@@ -67,7 +70,7 @@ entry test_hutchinson_lowRankLowNoise_chebyshev seed R n s =
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
 entry test_hutchinson_lowRankMedNoise_chebyshev seed R n s =
-  HC.test (T.lowRankMedNoise (seed + 1) R n) s 1.0_f32 seed
+  HC.test (T.lowRankMedNoise (seed + 1) R n) s t seed
 
 -- ==
 -- entry: test_hutchinson_lowRankHiNoise_chebyshev
@@ -75,4 +78,4 @@ entry test_hutchinson_lowRankMedNoise_chebyshev seed R n s =
 -- compiled random input { i64 90i64 100i64 100i64 }
 -- output { true }
 entry test_hutchinson_lowRankHiNoise_chebyshev seed R n s =
-  HC.test (T.lowRankHiNoise (seed + 1) R n) s 1.0_f32 seed
+  HC.test (T.lowRankHiNoise (seed + 1) R n) s t seed
