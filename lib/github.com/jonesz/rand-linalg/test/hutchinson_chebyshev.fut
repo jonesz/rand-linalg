@@ -79,3 +79,29 @@ entry test_hutchinson_lowRankMedNoise_chebyshev seed R n s =
 -- output { true }
 entry test_hutchinson_lowRankHiNoise_chebyshev seed R n s =
   HC.test (T.lowRankHiNoise (seed + 1) R n) s t seed
+
+module HPPC = mk_chebyshev_rademacher f32 (hutchplusplus f32)
+
+-- ==
+-- entry: test_hutchplusplus_lowRankLowNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 9i64 }
+-- compiled random input { i64 90i64 100i64 99i64 }
+-- output { true }
+entry test_hutchplusplus_lowRankLowNoise_chebyshev seed R n s =
+  HPPC.test (T.lowRankLowNoise (seed + 1) R n) s t seed
+
+-- ==
+-- entry: test_hutchplusplus_lowRankMedNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 9i64 }
+-- compiled random input { i64 90i64 100i64 99i64 }
+-- output { true }
+entry test_hutchplusplus_lowRankMedNoise_chebyshev seed R n s =
+  HPPC.test (T.lowRankMedNoise (seed + 1) R n) s t seed
+
+-- ==
+-- entry: test_hutchplusplus_lowRankHiNoise_chebyshev
+-- compiled random input { i64 10i64 100i64 9i64 }
+-- compiled random input { i64 90i64 100i64 99i64 }
+-- output { true }
+entry test_hutchplusplus_lowRankHiNoise_chebyshev seed R n s =
+  HPPC.test (T.lowRankHiNoise (seed + 1) R n) s t seed
