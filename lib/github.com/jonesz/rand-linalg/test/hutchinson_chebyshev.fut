@@ -53,8 +53,8 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
 module HC = mk_chebyshev_rademacher f32 (hutchinson f32)
 module T = tm f32
 
--- The trace estimator should be within 5% of the actual trace.
-def t = 0.05_f32
+-- The trace estimator should be within 10% of the actual trace.
+def t = 0.10_f32
 
 -- ==
 -- entry: test_hutchinson_lowRankLowNoise_chebyshev

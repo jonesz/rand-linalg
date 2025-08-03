@@ -85,3 +85,50 @@ entry test_hutchinson_expDecayMed_eps seed R n s =
 entry test_hutchinson_expDecayFast_eps seed R n s =
   let A = T.expDecayFast R n
   in H.test seed A s
+
+module HPP = mk_eps_test f32 (hutchplusplus f32)
+
+-- ==
+-- entry: test_hutchplusplus_polyDecayMed_eps
+-- compiled random input { i64 10i64 100i64 3i64 }
+-- compiled random input { i64 90i64 100i64 3i64 }
+-- output { true }
+entry test_hutchplusplus_polyDecayMed_eps seed R n s =
+  let A = T.polyDecayMed R n
+  in HPP.test seed A s
+
+-- ==
+-- entry: test_hutchplusplus_polyDecayFast_eps
+-- compiled random input { i64 10i64 100i64 3i64 }
+-- compiled random input { i64 90i64 100i64 3i64 }
+-- output { true }
+entry test_hutchplusplus_polyDecayFast_eps seed R n s =
+  let A = T.polyDecayFast R n
+  in HPP.test seed A s
+
+-- ==
+-- entry: test_hutchplusplus_expDecaySlow_eps
+-- compiled random input { i64 10i64 100i64 3i64 }
+-- compiled random input { i64 90i64 100i64 3i64 }
+-- output { true }
+entry test_hutchplusplus_expDecaySlow_eps seed R n s =
+  let A = T.expDecaySlow R n
+  in HPP.test seed A s
+
+-- ==
+-- entry: test_hutchplusplus_expDecayMed_eps
+-- compiled random input { i64 10i64 100i64 3i64 }
+-- compiled random input { i64 90i64 100i64 3i64 }
+-- output { true }
+entry test_hutchplusplus_expDecayMed_eps seed R n s =
+  let A = T.expDecayMed R n
+  in HPP.test seed A s
+
+-- ==
+-- entry: test_hutchplusplus_expDecayFast_eps
+-- compiled random input { i64 10i64 100i64 3i64 }
+-- compiled random input { i64 90i64 100i64 3i64 }
+-- output { true }
+entry test_hutchplusplus_expDecayFast_eps seed R n s =
+  let A = T.expDecayFast R n
+  in HPP.test seed A s
