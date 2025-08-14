@@ -21,18 +21,24 @@ module mk_random_signs_emb
   (E: cbrng_engine with t = u32 with k = i64)
   : randomized_embedding = {
   type t = R.t
-  type param = {p: f32, seed: E.k}
+  type param = {d: i64, p: f32, seed: E.k}
+
   module U = uniform_real_distribution f32 u32 i64 E
 
   def mul (p: param) A =
     let sample k =
       let dist = (p.seed, {min_r = 0.0_f32, max_r = 1.0_f32})
       let z = U.rand dist k
-      in if z <= (1f32 - p.p)
+
+      -- \alpha^2 = 1 / dp, which implies E[S*S] = I_n.
+      let alpha = f32.i64 p.d |> (f32.*) p.p |> (f32./) 1f32 |> f32.sqrt |> R.f32
+      -- s_ij ~ { +1 w.p. p/2; -1 w.p. p/2; 0 w.p. 1 - p }
+      let s = if z <= (1f32 - p.p)
          then R.i64 0
          else if z <= (1f32 - p.p) + (p.p / 2f32)
            then R.i64 1 |> R.neg
            else R.i64 1
+      in (R.*) alpha s
     in ???
 }
 
