@@ -10,9 +10,24 @@ module type randomized_embedding = {
   val mul [d] [m] [n] : param -> [m][n]t -> [d][n]t
 }
 
-module mk_gaussian_emb (R: real) (E: cbrng_engine) = {
+module mk_gaussian_emb
+  (R: real)
+  -- TODO: Remove these constraints on the generated value and the key.
+  (E: cbrng_engine with t = u32 with k = i64)
+  : randomized_embedding = {
   type t = R.t
-  type param = ()
+  type param = {d: i64, seed1: E.k, seed2: E.k}
+
+  module G = gaussian_distribution R u32 i64 E
+
+  def mul (p: param) A =
+    let sample k =
+      let dist =
+        let mean = R.i64 0
+        let stddev = R.i64 p.d |> (R./) (R.i64 1)
+        in (p.seed1, p.seed2, {mean=mean, stddev=stddev})
+      in G.rand dist k
+    in ???
 }
 
 module mk_random_signs_emb
