@@ -12,9 +12,9 @@ import "../../../diku-dk/linalg/linalg"
 
 module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
-  module D = rademacher_distribution R u32 i64 squares32
+  module D = rademacher_distribution R u32 squares32
 
-  def ste A s seed = S.ste s (D.rand seed) (L.matvecmul_row A)
+  def ste A s seed = S.ste s (D.rand seed ()) (L.matvecmul_row A)
   def tr A = L.fromdiag A |> reduce (R.+) (R.i64 0)
 
   -- Variance for the Rademacher test vector.

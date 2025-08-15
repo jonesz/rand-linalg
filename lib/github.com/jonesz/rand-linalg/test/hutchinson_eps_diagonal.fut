@@ -10,7 +10,7 @@ import "../../../diku-dk/linalg/linalg"
 
 module mk_eps_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
-  module D = rademacher_distribution R u32 i64 squares32
+  module D = rademacher_distribution R u32 squares32
 
   -- | A constant `eps`, for which the stochastic estimator is allowed to deviate.
   def eps = R.f32 0.00001_f32
@@ -21,7 +21,7 @@ module mk_eps_test (R: real) (S: ste with t = R.t) = {
   def tr_diff seed A samples =
     let seed = squares32.construct seed
     let exp_tr = tr A
-    let est_tr = S.ste samples (D.rand seed) (L.matvecmul_row A)
+    let est_tr = S.ste samples (D.rand seed ()) (L.matvecmul_row A)
     in (R.-) exp_tr est_tr |> R.abs
 
   def test seed A samples = tr_diff seed A samples |> (R.>) eps

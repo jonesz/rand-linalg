@@ -8,7 +8,7 @@ module tm (T: real) = {
   type t = T.t
 
   module L = mk_linalg T
-  module N = gaussian_distribution T u32 i64 squares32
+  module N = gaussian_distribution T u32 squares32
 
   -- k_ij = exp(-||x_i - x_j||^2 / 2h)
   def rbfKernel 't [n] (p: [n]t) h =
@@ -23,8 +23,9 @@ module tm (T: real) = {
     let r_elem = replicate R (T.i64 1)
     let p_elem = replicate (n - R) (T.i64 0)
     let d = L.todiag (r_elem ++ p_elem :> [n]t)
-    let dist = ((squares32.construct seed), (squares32.construct (seed * 0xA)), {mean = (T.i64 0), stddev = (T.i64 1)})
-    let G = map (\i -> map (\j -> N.rand dist (i * n + j)) (iota n)) (iota n)
+    let G: [n][n]t =
+      let k = squares32.construct seed
+      in tabulate (n * n) (N.rand k {mean=(T.i64 0), stddev=(T.i64 1)}) |> unflatten
     let noise = L.matmul G (transpose G)
     let scale = (T./) e (n * 4_i64 |> T.i64)
     in L.matscale scale noise |> L.matadd d
