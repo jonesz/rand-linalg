@@ -3,5 +3,5 @@ package github.com/jonesz/rand-linalg
 require {
   github.com/diku-dk/linalg 0.6.0 #39eff097509db88ec82bcf9316186d3a147080a6
   github.com/diku-dk/cpprandom 1.4.1 #c95459a4f362a56293cbefe71ef8dcb78b7a333e
-  github.com/jonesz/cbrng-fut 0.0.0-20250815014944+7191c41e9c45895f084f03a0c1836abb0be1aebc #7191c41e9c45895f084f03a0c1836abb0be1aebc
+  github.com/jonesz/cbrng-fut 0.0.0-20250819012935+eb3f54f8e5cccbcca482e0aa568da8a0a4af4f68 #eb3f54f8e5cccbcca482e0aa568da8a0a4af4f68
 }
