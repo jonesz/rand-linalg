@@ -2,6 +2,7 @@
 
 import "../cbrng-fut/cbrng"
 import "../cbrng-fut/distribution"
+import "../../diku-dk/linalg/linalg"
 
 module random_sparse_signs_distribution
   (D: numeric)
@@ -27,4 +28,27 @@ module random_sparse_signs_distribution
        else if (T.<=) r o
        then D.i64 1
        else D.i64 1 |> D.neg
+}
+
+module type embedding = {
+  module engine: cbrng_engine
+  type t
+
+  val embed [m] [n] : engine.k -> (d: i64) -> [m][n]t -> [d][n]t
+}
+
+module guassian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t)
+  : embedding
+    with engine.k = E.k
+    with t = R.t = {
+  module engine = E
+  type t = R.t
+
+  module L = mk_linalg R
+  module G = gaussian_distribution R T E
+
+  def embed [m] seed d A =
+    let dist = {mean = R.i64 0, stddev = (R.i64 d |> flip (R.**) (R.i64 1 |> R.neg))}
+    let S = tabulate (d * m) (G.rand seed dist) |> unflatten
+    in L.matmul S A
 }
