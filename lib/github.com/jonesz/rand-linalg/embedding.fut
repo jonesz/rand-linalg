@@ -37,7 +37,7 @@ module type embedding = {
   val embed [m] [n] : engine.k -> (d: i64) -> [m][n]t -> [d][n]t
 }
 
-module guassian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t)
+module gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t)
   : embedding
     with engine.k = E.k
     with t = R.t = {
