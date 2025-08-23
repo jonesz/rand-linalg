@@ -5,7 +5,8 @@ SRC= \
 TEST = \
 	lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal.fut \
 	lib/github.com/jonesz/rand-linalg/test/hutchinson_chebyshev.fut \
-	lib/github.com/jonesz/rand-linalg/test/embedding_test.fut
+	lib/github.com/jonesz/rand-linalg/test/embedding_test.fut \
+	lib/github.com/jonesz/rand-linalg/test/sketch_equivalence.fut
 
 all: test
 
@@ -25,3 +26,4 @@ clean:
 	$(RM) lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal
 	$(RM) lib/github.com/jonesz/rand-linalg/test/hutchinson_chebyshev
 	$(RM) lib/github.com/jonesz/rand-linalg/test/embedding_test
+	$(RM) lib/github.com/jonesz/rand-linalg/test/sketch_equivalence
