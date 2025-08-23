@@ -2,15 +2,15 @@
 
 import "../cbrng-fut/cbrng"
 import "../cbrng-fut/distribution"
-import "../../diku-dk/linalg/linalg"
+import "sketch"
 
 module random_sparse_signs_distribution
   (D: numeric)
   (T: integral)
   (E: cbrng_engine with t = T.t)
   : cbrng_distribution
-    with engine.k = E.k
     with num.t = D.t
+    with engine.k = E.k
     with distribution = f32 = {
   module engine = E
   module num = D
@@ -30,25 +30,16 @@ module random_sparse_signs_distribution
        else D.i64 1 |> D.neg
 }
 
-module type embedding = {
-  module engine: cbrng_engine
-  type t
-
-  val embed [m] [n] : engine.k -> (d: i64) -> [m][n]t -> [d][n]t
-}
-
-module gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t)
-  : embedding
-    with engine.k = E.k
-    with t = R.t = {
-  module engine = E
+module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t) = {
   type t = R.t
+  module S = mk_sketch R (gaussian_distribution R T E)
 
-  module L = mk_linalg R
-  module G = gaussian_distribution R T E
+  local def dist d = {mean = R.i64 0, stddev = (R.i64 d |> flip (R.**) (R.i64 1 |> R.neg))}
 
-  def embed [m] seed d A =
-    let dist = {mean = R.i64 0, stddev = (R.i64 d |> flip (R.**) (R.i64 1 |> R.neg))}
-    let S = tabulate (d * m) (G.rand seed dist) |> unflatten
-    in L.matmul S A
+  module A = {
+    def embed seed d A = S.left.A.sketch seed (dist d) d A
+  }
+  module B = {
+    def embed seed d oracle = S.left.B.sketch seed (dist d) d oracle
+  }
 }
