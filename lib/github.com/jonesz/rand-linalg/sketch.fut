@@ -1,9 +1,39 @@
 import "../cbrng-fut/cbrng"
 import "../cbrng-fut/distribution"
 
-module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
-  type t = N.t
+module type sketch_left_dense = {
+  module dist: cbrng_distribution
+  type t
 
+  -- | A sketch where a dense `A` is passed entirely in memory.
+  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> [m][n]t -> [d][n]t
+}
+
+module type sketch_right_dense = {
+  module dist: cbrng_distribution
+  type t
+
+  -- | A sketch where a dense `A` is passed entirely in memory.
+  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> [m][n]t -> [m][d]t
+}
+
+module type sketch_left_oracle = {
+  module dist: cbrng_distribution
+  type t
+
+  -- | A sketch where an oracle allows access to `A`.
+  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> ([m]t -> [n]t) -> [d][n]t
+}
+
+module type sketch_right_oracle = {
+  module dist: cbrng_distribution
+  type t
+
+  -- | A sketch where an oracle allows access to `A`.
+  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> ([n]t -> [m]t) -> [m][d]t
+}
+
+module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
   -- https://futhark-lang.org/examples/matrix-multiplication.html
   local def matmul A B =
     map (\A_row ->
@@ -14,31 +44,55 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 
   -- | Left sketches: SA
   module left = {
-    -- | A left sketch where a dense `A` is passed entirely in memory.
-    module dense = {
-      def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (A: [m][n]t) : [d][n]t =
-        tabulate (d * m) (D.rand seed cfg) |> unflatten |> flip (matmul) A
+    module dense
+      : sketch_left_dense
+        with dist.distribution = D.distribution
+        with dist.engine.k = D.engine.k
+        with t = N.t = {
+      module dist = D
+      type t = N.t
+
+      def sketch [m] [n] (seed: dist.engine.k) (cfg: dist.distribution) (d: i64) (A: [m][n]t) : [d][n]t =
+        tabulate (d * m) (dist.rand seed cfg) |> unflatten |> flip (matmul) A
     }
 
-    -- | A left sketch where a transpose matrix-vector product oracle is passed.
-    module oracle = {
-      def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (oracle: [m]t -> [n]t) : [d][n]t =
-        tabulate (d * m) (D.rand seed cfg) |> unflatten |> map (oracle)
+    module oracle
+      : sketch_left_oracle
+        with dist.distribution = D.distribution
+        with dist.engine.k = D.engine.k
+        with t = N.t = {
+      module dist = D
+      type t = N.t
+
+      def sketch [m] [n] (seed: dist.engine.k) (cfg: dist.distribution) (d: i64) (oracle: [m]t -> [n]t) : [d][n]t =
+        tabulate (d * m) (dist.rand seed cfg) |> unflatten |> map (oracle)
     }
   }
 
   -- | Right sketches: AS
   module right = {
-    -- | A right sketch where a dense `A` is passed entirely in memory.
-    module dense = {
-      def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (A: [m][n]t) : [m][d]t =
-        tabulate (n * d) (D.rand seed cfg) |> unflatten |> matmul A
+    module dense
+      : sketch_right_dense
+        with dist.distribution = D.distribution
+        with dist.engine.k = D.engine.k
+        with t = N.t = {
+      module dist = D
+      type t = N.t
+
+      def sketch [m] [n] (seed: dist.engine.k) (cfg: dist.distribution) (d: i64) (A: [m][n]t) : [m][d]t =
+        tabulate (n * d) (dist.rand seed cfg) |> unflatten |> matmul A
     }
 
-    -- | A right sketch where a matrix-vector product oracle is passed.
-    module oracle = {
-      def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (oracle: [n]t -> [m]t) : [m][d]t =
-        tabulate (n * d) (D.rand seed cfg) |> unflatten |> transpose |> map (oracle) |> transpose
+    module oracle
+      : sketch_right_oracle
+        with dist.distribution = D.distribution
+        with dist.engine.k = D.engine.k
+        with t = N.t = {
+      module dist = D
+      type t = N.t
+
+      def sketch [m] [n] (seed: dist.engine.k) (cfg: dist.distribution) (d: i64) (oracle: [n]t -> [m]t) : [m][d]t =
+        tabulate (n * d) (dist.rand seed cfg) |> unflatten |> transpose |> map (oracle) |> transpose
     }
   }
 }
