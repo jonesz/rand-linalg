@@ -14,14 +14,14 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 
   -- | Left sketches: SA
   module left = {
-    -- | A left sketch where `A` is passed entirely in memory.
-    module A = {
+    -- | A left sketch where a dense `A` is passed entirely in memory.
+    module dense = {
       def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (A: [m][n]t) : [d][n]t =
         tabulate (d * m) (D.rand seed cfg) |> unflatten |> flip (matmul) A
     }
 
     -- | A left sketch where a transpose matrix-vector product oracle is passed.
-    module B = {
+    module oracle = {
       def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (oracle: [m]t -> [n]t) : [d][n]t =
         tabulate (d * m) (D.rand seed cfg) |> unflatten |> map (oracle)
     }
@@ -29,14 +29,14 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 
   -- | Right sketches: AS
   module right = {
-    -- | A right sketch where `A` is passed entirely in memory.
-    module A = {
+    -- | A right sketch where a dense `A` is passed entirely in memory.
+    module dense = {
       def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (A: [m][n]t) : [m][d]t =
         tabulate (n * d) (D.rand seed cfg) |> unflatten |> matmul A
     }
 
     -- | A right sketch where a matrix-vector product oracle is passed.
-    module B = {
+    module oracle = {
       def sketch [m] [n] (seed: D.engine.k) (cfg: D.distribution) (d: i64) (oracle: [n]t -> [m]t) : [m][d]t =
         tabulate (n * d) (D.rand seed cfg) |> unflatten |> transpose |> map (oracle) |> transpose
     }

@@ -36,10 +36,10 @@ module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T
 
   local def dist d = {mean = R.i64 0, stddev = (R.i64 d |> flip (R.**) (R.i64 1 |> R.neg))}
 
-  module A = {
-    def embed seed d A = S.left.A.sketch seed (dist d) d A
+  module dense = {
+    def embed seed d A = S.left.dense.sketch seed (dist d) d A
   }
-  module B = {
-    def embed seed d oracle = S.left.B.sketch seed (dist d) d oracle
+  module oracle = {
+    def embed seed d oracle = S.left.oracle.sketch seed (dist d) d oracle
   }
 }
