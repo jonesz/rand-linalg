@@ -7,7 +7,7 @@ module type sketch_left_dense = {
   type t
 
   -- | A sketch where a dense `A` is passed entirely in memory.
-  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> [m][n]t -> [d][n]t
+  val sketch [m] [n] : dist.engine.k -> (d: i64) -> [m][n]t -> [d][n]t
 }
 
 module type sketch_right_dense = {
@@ -15,7 +15,7 @@ module type sketch_right_dense = {
   type t
 
   -- | A sketch where a dense `A` is passed entirely in memory.
-  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> [m][n]t -> [m][d]t
+  val sketch [m] [n] : dist.engine.k -> (d: i64) -> [m][n]t -> [m][d]t
 }
 
 module type sketch_left_oracle = {
@@ -23,7 +23,7 @@ module type sketch_left_oracle = {
   type t
 
   -- | A sketch where an oracle allows access to `A`.
-  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> ([m]t -> [n]t) -> [d][n]t
+  val sketch [m] [n] : dist.engine.k -> (d: i64) -> ([m]t -> [n]t) -> [d][n]t
 }
 
 module type sketch_right_oracle = {
@@ -31,10 +31,10 @@ module type sketch_right_oracle = {
   type t
 
   -- | A sketch where an oracle allows access to `A`.
-  val sketch [m] [n] : dist.engine.k -> dist.distribution -> (d: i64) -> ([n]t -> [m]t) -> [m][d]t
+  val sketch [m] [n] : dist.engine.k -> (d: i64) -> ([n]t -> [m]t) -> [m][d]t
 }
 
-module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
+local module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
   -- https://futhark-lang.org/examples/matrix-multiplication.html
   local def matmul A B =
     map (\A_row ->
@@ -45,11 +45,7 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 
   -- | Left sketches: SA
   module left = {
-    module dense
-      : sketch_left_dense
-        with dist.distribution = D.distribution
-        with dist.engine.k = D.engine.k
-        with t = N.t = {
+    module dense = {
       module dist = D
       type t = N.t
 
@@ -57,11 +53,7 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
         tabulate (d * m) (dist.rand seed cfg) |> unflatten |> flip (matmul) A
     }
 
-    module oracle
-      : sketch_left_oracle
-        with dist.distribution = D.distribution
-        with dist.engine.k = D.engine.k
-        with t = N.t = {
+    module oracle = {
       module dist = D
       type t = N.t
 
@@ -72,11 +64,7 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 
   -- | Right sketches: AS
   module right = {
-    module dense
-      : sketch_right_dense
-        with dist.distribution = D.distribution
-        with dist.engine.k = D.engine.k
-        with t = N.t = {
+    module dense = {
       module dist = D
       type t = N.t
 
@@ -84,11 +72,7 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
         tabulate (n * d) (dist.rand seed cfg) |> unflatten |> matmul A
     }
 
-    module oracle
-      : sketch_right_oracle
-        with dist.distribution = D.distribution
-        with dist.engine.k = D.engine.k
-        with t = N.t = {
+    module oracle = {
       module dist = D
       type t = N.t
 
