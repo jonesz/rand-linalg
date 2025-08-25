@@ -5,3 +5,4 @@ lib/github.com/jonesz/rand-linalg/data
 doc/
 TODO.md
 NOTES.md
+benchmark/data
