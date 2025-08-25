@@ -17,3 +17,4 @@ Significant code is based off of Tropp's Winter 2020
 | Algorithm | Source |
 | --------- | ------ |
 | Hutch++ | [Hutch++: Optimal Stochastic Trace Estimation (2021)](https://arxiv.org/pdf/2010.09649)
+| TSQR    | [Communication-avoiding parallel and sequential QR factorizations](https://bebop.cs.berkeley.edu/pubs/mhoemmen2008-tsqr-tech-report.pdf)

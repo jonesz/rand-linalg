@@ -1,6 +1,7 @@
 import "../../diku-dk/linalg/qr"
 import "../../diku-dk/linalg/linalg"
 
+-- TODO: Gram Schmidt is too unstable, replace this.
 module QR = mk_gram_schmidt f32
 module L = mk_linalg f32
 
@@ -24,5 +25,6 @@ def tsqr [a] [b] (k: i64) (A: [a][b]f32) : ([a][a]f32, [a][b]f32) =
       in merge R
 
   let R = flatten R :> [a][b]f32
+
   -- TODO: Compute Q at the end.
   in (L.eye a, R)
