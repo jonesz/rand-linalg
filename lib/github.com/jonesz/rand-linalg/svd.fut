@@ -1,4 +1,6 @@
+-- | Randomized SVD.
 import "sketch"
+import "../cbrng-fut/distribution"
 import "../../diku-dk/linalg/qr"
 
 local module type svd = {
@@ -20,8 +22,18 @@ local module type svd = {
 -- 		in ???
 -- }
 
+-- | A randomized rangefinder.
 module mk_rangefinder (D: numeric) : {
-	val rangefinder [m][n]: (l: i64) -> [m][n]D.t -> [m][l]D.t
+	module dist = cbrng_distribution
+	val rangefinder [m][n]: dist.engine.k -> (l: i64) -> [m][n]D.t -> [m][l]D.t
 } = {
-	def rangefinder l B = ???
+	def rangefinder seed l B = ???
+}
+
+-- | A randomized rangefinder with a subspace iteration.
+module mk_rangefinder_subspace (D: numeric) : {
+	module dist = cbrng_distribution
+	val rangefinder [m][n]: dist.engine.k -> (l: i64) -> (q: i64) -> [m][n]D.t -> [m][l]D.t
+} = {
+	def rangefinder seed l q B = ???
 }
