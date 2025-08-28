@@ -25,11 +25,35 @@ def tsqr [a] [b] (k: i64) (A: [a][b]f32) : ([a][a]f32, [a][b]f32) =
   -- TODO: Compute Q at the end.
   in (L.eye a, R)
 
--- | A tall and skinny QR factorization.
-module TSQR (D: numeric)
+-- | A tall and skinny thin QR factorization.
+module TSQR (D: real)
   : {
-      val qr [n] [m] : i64 -> (A: [n][m]D.t) -> ([n][n]D.t, [n][m]D.t)
+      val qr [n] [m] : i64 -> (A: [n][m]D.t) -> ([n][m]D.t, [n][n]D.t)
     } = {
+
+  -- The "6.1 Structured QR factorizations" thin QR algorithm.
+  module local_qr : {
+    val qr [n][m] : (A: [m][n]D.t) -> ([m][n]D.t, [n][n]D.t) 
+  } = {
+    def qr [n][m] (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
+      -- Compute a householder vector.
+
+      let house [m] (x: [m]D.t) =
+        let e_1 = [(D.i64 1)] ++ replicate (m-1) (D.i64 0) 
+        let norm z = map2 (D.*) z z |> reduce (D.+) (D.i64 0) |> D.sqrt
+
+        -- If using floating point arithmetic, we flip the sign bit dependent
+        -- on the first element in the vector.
+        let alpha = if (D.sgn x[0]) >= 0 then norm x |> D.neg else norm x 
+
+        -- TODO: Can we not use the copy here?
+        let u = copy x with [0] = x[0] - alpha
+        let v = map (D./) u (norm u)
+        in v
+
+      let (Q, R) = ???
+  }
+  
   -- | TSQR; `k` must be a power of 2 and the number of rows in `A` (`[n]`) must be divisible by `k`.
   def qr [n] [m] k (A: [n][m]D.t) : ([n][n]D.t, [n][m]D.t) =
 
