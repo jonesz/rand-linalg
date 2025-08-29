@@ -12,7 +12,8 @@ TEST = \
 all: test
 
 test: $(TEST) $(SRC)
-	futhark test --backend=multicore $(TEST)
+	$(MAKE) -C lib/github.com/jonesz/rand-linalg/qr
+	futhark --backend=multicore test $(TEST)
 
 .PHONY: doc clean
 
@@ -20,6 +21,7 @@ doc:
 	futhark doc -o doc/ lib/github.com/jonesz/rand-linalg
 
 clean:
+	$(MAKE) -C lib/github.com/jonesz/rand-linalg/qr clean
 	$(RM) -rf doc/
 	$(RM) lib/github.com/jonesz/rand-linalg/test/*.c
 	$(RM) lib/github.com/jonesz/rand-linalg/test/*.expected

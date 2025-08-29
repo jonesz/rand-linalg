@@ -1,5 +1,5 @@
-test: tsqr.fut
-	futhark test $^
+test: test_tsqr.fut tsqr.fut
+	futhark test $<
 
 .PHONY: clean
 
