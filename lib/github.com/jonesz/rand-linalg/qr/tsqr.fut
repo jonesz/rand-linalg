@@ -7,7 +7,7 @@ local def zero_below_main_diag [n] [m] 't (zero: t) (R: [m][n]t) : [m][n]t =
        R
 
 -- | An economical QR.
-module econ_qr (D: real) = {
+module qr_econ (D: real) = {
   module L = mk_linalg D
 
   def house [m] (x: [m]D.t) =
@@ -56,7 +56,7 @@ module TSQR (D: real)
   : {
       val qr [n] [m] : i64 -> (A: [m][n]D.t) -> ([m][n]D.t, [n][n]D.t)
     } = {
-  module QR_E = econ_qr D
+  module QR_E = qr_econ D
 
   -- | TSQR; `k` must be a power of 2 and the number of rows in `A` (`[n]`) must be divisible by `k`.
   def qr [n] [m] k (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =

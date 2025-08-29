@@ -6,3 +6,4 @@ doc/
 TODO.md
 NOTES.md
 benchmark/data
+lib/github.com/jonesz/rand-linalg/qr/data
