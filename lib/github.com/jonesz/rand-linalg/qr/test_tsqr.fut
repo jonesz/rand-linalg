@@ -13,12 +13,12 @@ local def f_norm A =
 	
 -- ==
 -- entry: test_econ_qr
--- compiled random input { [100][1000000][100]f32 }
+-- compiled random input { [10][100000][10]f32 }
 -- output { true }
 entry test_econ_qr rm =
 	let f A =
 		let (q, r) = QR_ECON.qr A
 		let A_norm = f_norm A
 		let A_minus_QR_norm = L.matmul q r |> L.matsub A |> f_norm
-		in A_minus_QR_norm / A_norm |> (<=) 0.001_f32
-	in map (f) rm
+		in A_minus_QR_norm / A_norm |> (>=) 0.001_f32
+	in map f rm |> and
