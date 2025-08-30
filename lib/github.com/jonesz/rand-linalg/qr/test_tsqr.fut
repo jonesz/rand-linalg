@@ -1,11 +1,9 @@
 -- | ignore
 
 import "tsqr"
-import "../test_matrices"
 import "../../../diku-dk/linalg/linalg"
 
 module QR_ECON = qr_econ f32
-module TM = tm f32
 module L = mk_linalg f32
 
 -- | All elements squared, summed, then take the square root.
