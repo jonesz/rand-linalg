@@ -1,3 +1,4 @@
+-- | An economical QR implementation.
 import "../../../diku-dk/linalg/qr"
 import "../../../diku-dk/linalg/linalg"
 
@@ -10,44 +11,68 @@ local def zero_below_main_diag [n] [m] 't (zero: t) (R: [m][n]t) : [m][n]t =
 module qr_econ (D: real) = {
   module L = mk_linalg D
 
+  -- TODO: There's a construction with `(tau, v)` that should be investigated.`
   def house [m] (x: [m]D.t) =
     -- If floating point, the sign bit should be flipped on `x[0]`.
     let a =
       let sgn = if (D.>=) x[0] (D.i64 0) then (D.i64 1i64) else (D.i64 (-1i64))
       in L.vecnorm x |> (D.*) sgn
-    -- TODO: Remove the copy?
     let u = copy x with [0] = (D.+) x[0] a
     let u = map (\u_i -> (D./) u_i (L.vecnorm u)) u
     in u
 
   def qr [n] [m] (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
-    -- This algorithm's strategy is the normal QR: we compute the `R` matrix
-    -- on the foreward pass, storing the `k`'th householder in the zero'ed `k-1`'th
+    -- The algorithm's strategy is the normal QR: we compute the `R` matrix
+    -- on the forward pass, storing the `k`'th householder in the zero'ed `k-1`'th
     -- column. After forming `R`, we form `Q` with a backward pass.
+
+    -- These update equations/indices are ripped from "3. The QR Decomposition" /
+    -- https://acme.byu.edu/00000179-d4cb-d26e-a37b-fffb57800001/qr-decomposition-pdf
+
+    -- Forward pass to form `R`.
     let (u, R) =
-      -- Compute the initial householder transformation; the 0'th vector will not
-      -- fit into `R`.
+      -- Compute the initial householder transformation and store it; the 0'th vector will
+      -- not fit into `R`.
       let u: [m][1]D.t = [house A[0:, 0]] |> transpose
-      -- TODO: Remove the copy?
-      let R = copy A with [0:, 0:] = L.matmul (transpose u) A[0:, 0:] |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub A[0:, 0:]
+
+      -- Perform the initial copy here. TODO: Place a uniqueness type on `A` `(A: *[m][n]D.t)`?
+      -- TODO: I'm relatively sure that `[0:, 0:]` is just the entire matrix; the below throws
+      -- some consuming error related to the below loop.
+      -- let R = L.matmul (transpose u) A |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub A
+      let R = copy A with [0:, 0:] =
+        L.matmul (transpose u) A[0:, 0:] |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub A[0:, 0:]
+
       let R =
         loop R for k in 1..<n do
-          let u: [m - k][1]D.t = [house A[k:, k]] |> transpose
-          -- TODO: Remove the copy?
-          let R = copy R with [k:, k:] = L.matmul (transpose u) R[k:, k:] |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub R[k:, k:]
+          let u: [m - k][1]D.t = [house R[k:, k]] |> transpose
+
+          let R =
+            -- TODO: Could these operations be chopped up further so that
+            -- they're in place too? i.e. we form a new R `with` for each operation.
+            let tmp = L.matmul (transpose u) R[k:, k:] |> L.matmul u |> L.matscale (D.i64 2)
+            in R with [k:, k:] = L.matsub R[k:, k:] tmp
+
+          -- Store the householder vector in the to-be-zeroed previous column.
           let R = R with [k:, (k - 1)] = flatten u
           in R
       in (u, R)
-    -- Backward pass to form Q.
+
+    -- Backward pass to form `Q`.
     let Q_wip: [m][n]D.t = (L.eye n) ++ (replicate (m - n) (replicate n (D.i64 0))) :> [m][n]D.t
-    let (Q, R) =
-      loop (Q, R) = (Q_wip, R)
-      for k in (n - 1)..>0 do
+    let Q =
+      loop Q = Q_wip for k in (n - 1)..>0 do
         let u: [m - k][1]D.t = [R[k:, (k - 1)]] |> transpose
-        let Q = copy Q with [k:, :] = L.matmul (transpose u) Q[k:, :] |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub Q[k:, :]
-        in (Q, R)
-    -- Last `u` vector...
-    let Q = copy Q with [0:, :] = L.matmul (transpose u) Q[0:, :] |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub Q[0:, :]
+        let Q =
+          let tmp = L.matmul (transpose u) Q[k:, :] |> L.matmul u |> L.matscale (D.i64 2)
+          in Q with [k:, :] = L.matsub Q[k:, :] tmp
+        in Q
+
+    -- Retrieve the Last `u` vector and form the matrix Q.
+    let Q =
+      -- TODO: I'm relatively sure that `[0:, 0:]` is just the entire matrix.
+      -- let tmp = L.matmul (transpose u) Q[0:, :] |> L.matmul u |> L.matscale (D.i64 2)
+      -- in Q with [0:, :]
+      L.matmul (transpose u) Q |> L.matmul u |> L.matscale (D.i64 2) |> L.matsub Q
     in (Q, (take n R) |> zero_below_main_diag (D.i64 0))
 }
 
