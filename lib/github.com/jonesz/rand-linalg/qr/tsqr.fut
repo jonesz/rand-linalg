@@ -85,26 +85,33 @@ module TSQR (D: real)
 
   -- | TSQR; `k` must be a power of 2 and the number of rows in `A` (`[n]`) must be divisible by `k`.
   def qr [n] [m] k (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
+
     -- Split the entire matrix `A` into `k` blocks.
     let A_blocked: [k][(n / k)][m]D.t =
       let A: [m * n]D.t = flatten A
       let A: [k * (n / k) * m]D.t = A :> [k * (n / k) * m]D.t
       in unflatten_3d A
+
     -- At each new depth of the tree, we concatenate each pair of the block matrices together.
     let merge [d] [e] [f] (X: [d][e][f]D.t): [d / 2][e * 2][f]D.t =
       let X: [d * e * f]D.t = flatten_3d X
       let X: [(d / 2) * (e * 2) * f]D.t = X :> [(d / 2) * (e * 2) * f]D.t
       in unflatten_3d X
+
     -- Depth of the tree.
     let bound = f32.i64 k |> f32.log2 |> i64.f32
+
     -- Underlying QR algorithm to call.
     let qr_econ = QR_E.qr
+
     let R =
       loop (A_blocked) for _ in 0..<bound do
         let (_, R) = map (qr_econ) A_blocked |> unzip
         in merge R
+
     -- `R` should be, at this point, `[1][n][m]D.t`.
     let R = flatten R :> [n][m]D.t
+
     -- TODO: Compute Q from R.
     let Q = ???
     in ???
