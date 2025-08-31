@@ -1,5 +1,4 @@
 -- | An economical QR implementation.
-import "../../../diku-dk/linalg/qr"
 import "../../../diku-dk/linalg/linalg"
 
 local def zero_below_main_diag [n] [m] 't (zero: t) (R: [m][n]t) : [m][n]t =
