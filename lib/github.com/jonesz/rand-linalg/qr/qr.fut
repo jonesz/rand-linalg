@@ -101,6 +101,7 @@ module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [
   with t = D.t
   with cfg = i64 = {
 
+  module L = mk_linalg D
   type t = D.t
   type cfg = i64
      
@@ -108,9 +109,9 @@ module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [
   def qr [n] [m] k (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
 
     -- Split the entire matrix `A` into `k` blocks.
-    let A_blocked: [k][(n / k)][m]D.t =
+    let A_blocked: [k][(m / k)][n]D.t =
       let A: [m * n]D.t = flatten A
-      let A: [k * (n / k) * m]D.t = A :> [k * (n / k) * m]D.t
+      let A: [k * (m / k) * n]D.t = A :> [k * (m / k) * n]D.t
       in unflatten_3d A
 
     -- At each new depth of the tree, we concatenate each pair of the block matrices together.
@@ -122,13 +123,32 @@ module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [
     -- Depth of the tree.
     let bound = f32.i64 k |> f32.log2 |> i64.f32
 
-    let R =
-      loop (A_blocked) for _ in 0..<bound do
-        let (_, R) = map (QR.qr) A_blocked |> unzip
-        in merge R
+    --    n  n  n  n         n   n
+    -- m Q_1                                n
+    -- m    Q_2        * 2n Q_12     *  2n Q_1234
+    -- m       Q_3       2n     Q_34
+    -- m          Q_4
+    --  
+    --   [m][4n] * [4n][2n] * [2n][n] = [4m][n]
+
+    -- TODO: This might need 
+
+    let q_block [k][m][n] (Qs: [k][m][n]t) : [k*m][k*n]t = ???
+
+    -- Compute the first iteration.
+    let (Q, R) = map (QR.qr) A_blocked |> unzip
+    let Q = q_block Q |> L.matmul (L.eye (k * (m / k)))
+    let R = merge R
+
+    let (Q, R) =
+      loop (Q_prev, R_prev) = (Q, R) for _ in 1..<bound do
+        let (Q, R) = map (QR.qr) R_prev |> unzip
+        let Q = q_block Q |> L.matmul Q_prev 
+        let R = merge R
+        in (Q, R)
 
     -- `R` should be, at this point, `[1][n][m]D.t`.
-    let R = flatten R :> [n][m]D.t
+    let R = flatten R :> [n][n]D.t
 
     -- TODO: Compute Q from R.
     let Q = ???
