@@ -113,44 +113,95 @@ module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [
       let A: [m * n]D.t = flatten A
       let A: [k * (m / k) * n]D.t = A :> [k * (m / k) * n]D.t
       in unflatten_3d A
+--
+--    -- At each new depth of the tree, we concatenate each pair of the block matrices together.
+--    let merge [d] [e] [f] (X: [d][e][f]D.t): [d / 2][e * 2][f]D.t =
+--      let X: [d * e * f]D.t = flatten_3d X
+--      let X: [(d / 2) * (e * 2) * f]D.t = X :> [(d / 2) * (e * 2) * f]D.t
+--      in unflatten_3d X
+--
+--    -- Depth of the tree.
+--    let bound = f32.i64 k |> f32.log2 |> i64.f32
+--
+--    --    n  n  n  n         n   n
+--    -- m Q_1                                n
+--    -- m    Q_2        * 2n Q_12     *  2n Q_1234
+--    -- m       Q_3       2n     Q_34
+--    -- m          Q_4
+--    --  
+--    --   [m][4n] * [4n][2n] * [2n][n] = [4m][n]
+--
+--    -- TODO: This might need 
+--
+--    let q_block [k][m][n] (_Qs: [k][m][n]t) : [k*m][k*n]t = ???
+--
+--    -- Compute the first iteration.
+--    let (Q, R) = map (QR.qr) A_blocked |> unzip
+--    let Q_prev = q_block Q |> L.matmul (L.eye (k * (m / k)))
+--    let R_prev = merge R
+--
+--    let R =
+--      loop R_prev for _ in 1..<bound do
+--        let (_, R) = map (QR.qr) R_prev |> unzip
+--        let R = merge R
+--        in R
+--
+--    let Q =
+--      loop R_prev for _ in 1..<bound do
+--      
+--    let R = ???
+--    -- `R` should be, at this point, `[1][n][n]D.t`.
+--    let R = flatten R :> [n][n]t
+--    -- let Q = flatten Q :> [n][m]D.t
+--    -- in (Q, R)
+--    in (???, R)
 
-    -- At each new depth of the tree, we concatenate each pair of the block matrices together.
-    let merge [d] [e] [f] (X: [d][e][f]D.t): [d / 2][e * 2][f]D.t =
-      let X: [d * e * f]D.t = flatten_3d X
-      let X: [(d / 2) * (e * 2) * f]D.t = X :> [(d / 2) * (e * 2) * f]D.t
-      in unflatten_3d X
+--  Diagram: TSQR 1
+--  Q_1   
+--     Q_2                      Q_12
+--        Q_3                       Q_34
+--           Q_4                                   Q_1234
+--              Q_5                                      Q_5678        Q_1234
+--                 Q_6                   Q_56
+--                    Q_7                    Q_78
+--                       Q_8 
+-- 
+--  [m][8n]             *            [8n][4n]    *   [4n][2n]      *  [2n][n]      = [m][n]
 
-    -- Depth of the tree.
-    let bound = f32.i64 k |> f32.log2 |> i64.f32
+  -- The depth of the tree.
+  let bound = f32.i64 k |> f32.log2 |> i64.f32
 
-    --    n  n  n  n         n   n
-    -- m Q_1                                n
-    -- m    Q_2        * 2n Q_12     *  2n Q_1234
-    -- m       Q_3       2n     Q_34
-    -- m          Q_4
-    --  
-    --   [m][4n] * [4n][2n] * [2n][n] = [4m][n]
+  -- Form the explicit block matrix for Q_i (see "Diagram TSQR 1").
+  let q_block [k][m][n] (Q_i: [k][m][n]t) : [k*m][k*n]t =
+    let explicit =
+      map2 (\Q_k k_i ->
+        let left_dim  = k_i * n
+        let right_dim = ((k-1) - k_i) * n
+        in map (\Q_k_row ->
+          (replicate left_dim (D.i64 0)) ++ Q_k_row ++ (replicate right_dim (D.i64 0)) :> [k*n]t) Q_k) Q_i (iota k)
+      in flatten_3d explicit |> unflatten
 
-    -- TODO: This might need 
+  -- Merge `R` blocks for the next depth.
+  let r_merge [d] [e] [f] (X: [d][e][f]D.t): [d / 2][e * 2][f]D.t = ???
 
-    let q_block [k][m][n] (Qs: [k][m][n]t) : [k*m][k*n]t = ???
+  -- let (Q, R) =
+  --   loop (Q, R) = (L.eye m, A_blocked) for _ in 0..<bound do
+  --     let (Q_i, R_i) = map (QR.qr) R |> unzip
+  --     let Q = q_block Q_i |> L.matmul Q 
+  --     let R = r_merge R_i
+  --     in (Q, R)
 
-    -- Compute the first iteration.
-    let (Q, R) = map (QR.qr) A_blocked |> unzip
-    let Q = q_block Q |> L.matmul (L.eye (k * (m / k)))
-    let R = merge R
+  let (Q, R) =
+    loop (Q, R) = (L.eye m, A_blocked) for _ in 0..<bound do
+      let (Q_i, R_i) = map (QR.qr) R |> unzip
+      let Q_i = Q_i
+      let R_i = R_i
+      let Q: [k * n][(k / 2) * n]t = q_block Q_i |> L.matmul Q
+      let R = r_merge R_i
+      in (Q, R)
 
-    let (Q, R) =
-      loop (Q_prev, R_prev) = (Q, R) for _ in 1..<bound do
-        let (Q, R) = map (QR.qr) R_prev |> unzip
-        let Q = q_block Q |> L.matmul Q_prev 
-        let R = merge R
-        in (Q, R)
+  let Q = ???
+  let R = ???
 
-    -- `R` should be, at this point, `[1][n][m]D.t`.
-    let R = flatten R :> [n][n]D.t
-
-    -- TODO: Compute Q from R.
-    let Q = ???
-    in ???
+  in (Q, R)
 }
