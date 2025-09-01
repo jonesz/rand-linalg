@@ -1,17 +1,36 @@
--- | An economical QR implementation.
+-- | Operations for performing a QR decomposition. Specifically, these routines target
+-- tall and skinny matrices (the result of a sketch) and are the thin
+-- variant of QR; that is, their signature is `[m][n]t -> ([m][n]t, [n][n]t)`.
 import "../../../diku-dk/linalg/linalg"
 
+-- Taken from the `diku-dk/linalg` / Kasper et al. work.
 local def zero_below_main_diag [n] [m] 't (zero: t) (R: [m][n]t) : [m][n]t =
   map2 (\i -> map2 (\j x -> if j < i then zero else x) (iota n))
        (iota m)
        R
 
--- | An economical QR.
-module qr_econ (D: real) = {
-  module L = mk_linalg D
+-- | The thin QR.
+module type thin_qr = {
+  -- | The underlying scalar type.
+  type t 
+  -- | Some configuration variable for this QR (could be none).
+  type cfg 
+
+  -- | Perform a QR decomposition, returning `(Q, R)`.
+  val qr [n][m] : cfg -> (A: [m][n]t) -> ([m][n]t, [n][n]t)
+}
+
+-- | A thin Householder QR.
+module mk_householder_thin_qr (D: real) : thin_qr
+  with t = D.t
+  with cfg = () = {
+
+  local module L = mk_linalg D
+  type t = D.t
+  type cfg = ()
 
   -- TODO: There's a construction with `(tau, v)` that should be investigated.`
-  def house [m] (x: [m]D.t) =
+  local def house [m] (x: [m]D.t) =
     -- If floating point, the sign bit should be flipped on `x[0]`.
     let a =
       let sgn = if (D.>=) x[0] (D.i64 0) then (D.i64 1i64) else (D.i64 (-1i64))
@@ -20,7 +39,7 @@ module qr_econ (D: real) = {
     let u = map (\u_i -> (D./) u_i (L.vecnorm u)) u
     in u
 
-  def qr [n] [m] (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
+  def qr [n] [m] _ (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
     -- The algorithm's strategy is the normal QR: we compute the `R` matrix
     -- on the forward pass, storing the `k`'th householder in the zero'ed `k-1`'th
     -- column. After forming `R`, we form `Q` with a backward pass.
@@ -66,7 +85,7 @@ module qr_econ (D: real) = {
           in Q with [k:, :] = L.matsub Q[k:, :] tmp
         in Q
 
-    -- Retrieve the Last `u` vector and form the matrix Q.
+    -- Retrieve the last `u` vector and form the matrix Q.
     let Q =
       -- TODO: I'm relatively sure that `[0:, 0:]` is just the entire matrix.
       -- let tmp = L.matmul (transpose u) Q[0:, :] |> L.matmul u |> L.matscale (D.i64 2)
@@ -75,14 +94,17 @@ module qr_econ (D: real) = {
     in (Q, (take n R) |> zero_below_main_diag (D.i64 0))
 }
 
--- | A tall and skinny thin QR factorization.
-module TSQR (D: real)
-  : {
-      val qr [n] [m] : i64 -> (A: [m][n]D.t) -> ([m][n]D.t, [n][n]D.t)
-    } = {
-  module QR_E = qr_econ D
+-- | The tree-based tall and skinny QR decomposition scheme from [Demmel et al](https://bebop.cs.berkeley.edu/pubs/mhoemmen2008-tsqr-tech-report.pdf).
+-- `A` **must be divisble by** `k` **and** `k` **must be a power of two.**
+module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [n][n]D.t)})
+  : thin_qr
+  with t = D.t
+  with cfg = i64 = {
 
-  -- | TSQR; `k` must be a power of 2 and the number of rows in `A` (`[n]`) must be divisible by `k`.
+  type t = D.t
+  type cfg = i64
+     
+  -- | Perform a QR decomposition, splitting `A` into `k` leaves.
   def qr [n] [m] k (A: [m][n]D.t) : ([m][n]D.t, [n][n]D.t) =
 
     -- Split the entire matrix `A` into `k` blocks.
@@ -100,12 +122,9 @@ module TSQR (D: real)
     -- Depth of the tree.
     let bound = f32.i64 k |> f32.log2 |> i64.f32
 
-    -- Underlying QR algorithm to call.
-    let qr_econ = QR_E.qr
-
     let R =
       loop (A_blocked) for _ in 0..<bound do
-        let (_, R) = map (qr_econ) A_blocked |> unzip
+        let (_, R) = map (QR.qr) A_blocked |> unzip
         in merge R
 
     -- `R` should be, at this point, `[1][n][m]D.t`.

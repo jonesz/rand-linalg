@@ -1,10 +1,10 @@
 .PHONY: test clean bench
 
-test: test_tsqr.fut tsqr.fut
+test: test_qr.fut qr.fut
 	futhark test $<
 
-bench: bench_qr_econ.fut tsqr.fut
+bench: bench_qr.fut qr.fut
 	futhark bench $<
 
 clean:
-	$(RM) *.actual *.expected tsqr.c tsqr test_tsqr.c test_tsqr bench_qr_econ.c bench_qr_econ
+	$(RM) *.actual *.expected qr.c qr test_qr.c test_qr bench_qr.c bench_qr
