@@ -191,14 +191,14 @@ module mk_tsqr (D: real) (QR: { val qr [n] [m] : (A: [m][n]D.t) -> ([m][n]D.t, [
   --     let R = r_merge R_i
   --     in (Q, R)
 
-  let (Q, R) =
-    loop (Q, R) = (L.eye m, A_blocked) for _ in 0..<bound do
-      let (Q_i, R_i) = map (QR.qr) R |> unzip
-      let Q_i = Q_i
-      let R_i = R_i
-      let Q: [k * n][(k / 2) * n]t = q_block Q_i |> L.matmul Q
-      let R = r_merge R_i
-      in (Q, R)
+  --  let (Q, R) =
+  --    loop (Q, R) = (L.eye m, A_blocked) for _ in 0..<bound do
+  --      let (Q_i, R_i) = map (QR.qr) R |> unzip
+  --      let Q_i = Q_i
+  --      let R_i = R_i
+  --      let Q: [k * n][(k / 2) * n]t = q_block Q_i |> L.matmul Q
+  --      let R = r_merge R_i
+  --      in (Q, R)
 
   let Q = ???
   let R = ???

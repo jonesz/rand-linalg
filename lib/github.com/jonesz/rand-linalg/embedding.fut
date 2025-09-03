@@ -29,17 +29,3 @@ module random_sparse_signs_distribution
        then D.i64 1
        else D.i64 1 |> D.neg
 }
-
-module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t) = {
-  type t = R.t
-  module S = mk_sketch R (gaussian_distribution R T E)
-
-  local def dist d = {mean = R.i64 0, stddev = (R.i64 d |> flip (R.**) (R.i64 1 |> R.neg))}
-
-  module dense = {
-    def embed seed d A = S.left.dense.sketch seed (dist d) d A
-  }
-  module oracle = {
-    def embed seed d oracle = S.left.oracle.sketch seed (dist d) d oracle
-  }
-}
