@@ -1,32 +1,15 @@
-SRC= \
-	lib/github.com/jonesz/rand-linalg/ste.fut \
-	lib/github.com/jonesz/rand-linalg/sketch.fut \
-	lib/github.com/jonesz/rand-linalg/qr/qr.fut \
-	lib/github.com/jonesz/rand-linalg/test_matrices.fut
-
-TEST = \
-	lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal.fut \
-	lib/github.com/jonesz/rand-linalg/test/hutchinson_chebyshev.fut \
-	lib/github.com/jonesz/rand-linalg/test/sketch_equivalence.fut \
-	lib/github.com/jonesz/rand-linalg/qr/test_qr.fut
+.PHONY: doc clean test
 
 all: test
 
-test: $(TEST) $(SRC)
+test:
 	$(MAKE) -C lib/github.com/jonesz/rand-linalg/qr
-	futhark test --backend=multicore $(TEST)
-
-.PHONY: doc clean
+	$(MAKE) -C lib/github.com/jonesz/rand-linalg/test
 
 doc:
 	futhark doc -o doc/ lib/github.com/jonesz/rand-linalg
 
 clean:
 	$(MAKE) -C lib/github.com/jonesz/rand-linalg/qr clean
+	$(MAKE) -C lib/github.com/jonesz/rand-linalg/test clean
 	$(RM) -rf doc/
-	$(RM) lib/github.com/jonesz/rand-linalg/test/*.c
-	$(RM) lib/github.com/jonesz/rand-linalg/test/*.expected
-	$(RM) lib/github.com/jonesz/rand-linalg/test/*.actual
-	$(RM) lib/github.com/jonesz/rand-linalg/test/hutchinson_eps_diagonal
-	$(RM) lib/github.com/jonesz/rand-linalg/test/hutchinson_chebyshev
-	$(RM) lib/github.com/jonesz/rand-linalg/test/sketch_equivalence

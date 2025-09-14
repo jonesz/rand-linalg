@@ -11,8 +11,8 @@ module type ste = {
   -- | The underlying scalar type of the matrix.
   type t
 
-  -- | Estimate a trace.
-  val ste [n] : (samples: i64) -> (cbrng_rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
+  -- | Estimate a trace with `k` samples.
+  val ste [n] : (k: i64) -> (cbrng_rand: i64 -> t) -> (matvec: [n]t -> [n]t) -> t
 }
 
 -- | The Monte Carlo Girard-Hutchinson trace estimator.
@@ -40,8 +40,8 @@ module hutchinson (R: real)
     reduce (R.+) (R.i64 0) samples |> flip (R./) (R.i64 s)
 
   -- | Estimate the trace.
-  def ste samples cbrng_rand matvec =
-    map (sample cbrng_rand matvec) (iota samples) |> mcte
+  def ste k cbrng_rand matvec =
+    tabulate k (sample cbrng_rand matvec) |> mcte
 }
 
 -- | The adaptive Hutch++ algorithm presented in https://arxiv.org/pdf/2010.09649

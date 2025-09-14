@@ -1,6 +1,6 @@
 -- | ignore
--- | Tests against the Chebyshev bound. Based on the variance of the input
--- matrix, the estimator should be within some distnace of the true trace
+-- Tests against the Chebyshev bound. Based on the variance of the input
+-- matrix, the estimator should be within some distance of the true trace
 -- some percentage of the time; that percentage can be poorly bound with a
 -- Chebyshev bound.
 
