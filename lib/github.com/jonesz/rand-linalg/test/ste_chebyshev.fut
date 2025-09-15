@@ -1,8 +1,7 @@
 -- | ignore
 -- Tests against the Chebyshev bound. Based on the variance of the input
 -- matrix, the estimator should be within some distance of the true trace
--- some percentage of the time; that percentage can be poorly bound with a
--- Chebyshev bound.
+-- some percentage of the time.
 
 import "../ste"
 import "../test_matrices"
@@ -20,7 +19,7 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   -- Variance for the Rademacher test vector.
   def var [n] (A: [n][n]R.t) =
     let f_sq = map (\i -> (R.**) i (R.i64 2)) (flatten A) |> reduce (R.+) (R.i64 0)
-    let d_sq = map (\i -> (R.**) A[i][i] (R.i64 2)) (iota n) |> reduce (R.+) (R.i64 0)
+    let d_sq = tabulate n (\i -> (R.**) A[i][i] (R.i64 2)) |> reduce (R.+) (R.i64 0)
     in (R.-) f_sq d_sq |> (R.*) (R.i64 2)
 
   -- P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
@@ -43,7 +42,7 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
       let right = (R.*) true_tr t
       in (R.>=) left right |> i64.bool
 
-    in map (i64.+ seed) (iota m) |> map f
+    in tabulate m (i64.+ seed) |> map f
        |> reduce (+) 0i64
        |> R.i64
        |> flip (R./) (R.i64 m)
