@@ -1,10 +1,9 @@
 -- | ignore
+import "../../../diku-dk/linalg/linalg"
+import "../../cbrng-fut/cbrng"
+import "../../cbrng-fut/distribution"
 
-import "../../diku-dk/linalg/linalg"
-import "../cbrng-fut/cbrng"
-import "../cbrng-fut/distribution"
-
-module tm (T: real) = {
+module mk_tro (T: real) = {
   type t = T.t
 
   module L = mk_linalg T

@@ -1,13 +1,12 @@
 -- | ignore
--- Tests against the Chebyshev bound. Based on the variance of the input
--- matrix, the estimator should be within some distance of the true trace
--- some percentage of the time.
-
+-- Test against the chebyshev bound; dependent on the variance of the input,
+-- the STE's residual should be less than some computed value 't'.
+-- See [Chebyshev's Inequality](https://en.wikipedia.org/wiki/Chebyshev%27s_inequality).
 import "../ste"
-import "../test_matrices"
-import "../../cbrng-fut/distribution"
 import "../../cbrng-fut/cbrng"
+import "../../cbrng-fut/distribution"
 import "../../../diku-dk/linalg/linalg"
+import "tro_matrices"
 
 module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
@@ -16,10 +15,10 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   def ste A s seed = S.ste s (D.rand seed ()) (L.matvecmul_row A)
   def tr A = L.fromdiag A |> reduce (R.+) (R.i64 0)
 
-  -- Variance for the Rademacher test vector.
+  -- Variance for a Rademacher test vector.
   def var [n] (A: [n][n]R.t) =
-    let f_sq = map (\i -> (R.**) i (R.i64 2)) (flatten A) |> reduce (R.+) (R.i64 0)
-    let d_sq = tabulate n (\i -> (R.**) A[i][i] (R.i64 2)) |> reduce (R.+) (R.i64 0)
+    let f_sq = map (\i -> (R.*) i i) (flatten A) |> reduce (R.+) (R.i64 0)
+    let d_sq = tabulate n (\i -> (R.*) A[i][i] A[i][i]) |> reduce (R.+) (R.i64 0)
     in (R.-) f_sq d_sq |> (R.*) (R.i64 2)
 
   -- P{|X_s - tr(A)| >= t * tr(A)} <= Var[X] / s(tr A)^2 t^2.
@@ -50,7 +49,7 @@ module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
 }
 
 module HC = mk_chebyshev_rademacher f32 (hutchinson f32)
-module T = tm f32
+module T = mk_tro f32
 
 -- The trace estimator should be within 10% of the actual trace.
 def t = 0.10_f32

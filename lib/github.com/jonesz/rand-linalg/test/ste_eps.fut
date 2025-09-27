@@ -3,10 +3,10 @@
 -- of these tests are on diagonal matrices.
 
 import "../ste"
-import "../test_matrices"
 import "../../cbrng-fut/distribution"
 import "../../cbrng-fut/cbrng"
 import "../../../diku-dk/linalg/linalg"
+import "tro_matrices"
 
 module mk_eps_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R
@@ -26,7 +26,7 @@ module mk_eps_test (R: real) (S: ste with t = R.t) = {
   def test seed A k = tr_diff seed A k |> (R.>) eps
 }
 
-module T = tm f32
+module T = mk_tro f32
 
 -- The Hutchinson estimator should require a single sample.
 module H = mk_eps_test f32 (hutchinson f32)

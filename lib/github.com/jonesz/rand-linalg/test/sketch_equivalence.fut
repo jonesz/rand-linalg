@@ -1,14 +1,14 @@
 -- | ignore
--- Test that both the `dense` and `oracle` sketch modules produce the same result.
+-- Test that both the `dense` and `oracle` sketches produce the same result.
 
 import "../sketch"
-import "../test_matrices"
 import "../../cbrng-fut/distribution"
 import "../../cbrng-fut/cbrng"
 import "../../../diku-dk/linalg/linalg"
+import "tro_matrices"
 
 module S = mk_sketch f32 (rademacher_distribution f32 u32 squares32)
-module T = tm f32
+module T = mk_tro f32
 module L = mk_linalg f32
 
 -- ==
