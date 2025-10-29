@@ -1,66 +1,94 @@
 -- | Randomized SVD.
-import "sketch"
+import "rangefinder"
 import "../cbrng-fut/distribution"
 import "../../diku-dk/linalg/linalg"
-import "../../diku-dk/linalg/qr"
+import "qr/qr"
 
-local module type svd = {
-	type t
-	val svd [m][n] : (A: [m][n]t) -> ([m][m]t, [m][n]t, [n][n]t)
-}
-
--- https://www.irisa.fr/sage/bernard/publis/SVD-Chapter06.pdf
--- https://web.stanford.edu/class/cme335/lecture7.pdf
-local module two_sided_jacobi_serial(R: real): svd with t = R.t = {
-	module L = mk_linalg R
+local module one_sided_jacobi_serial(R: real) = {
 	type t = R.t
 
-	-- Compute the rotation matrix for `J(p, q, theta)`.
-	let jacobi_rotation_matrix (p: i64) (q: i64) theta (n: i64) =
-		let J = L.eye n
-
-		let c = R.cos theta
-		let s = R.sin theta
-
-		let J = J with [p][q] = s
-		let J = J with [p][p] = c          -- [[ c, s]
-		let J = J with [q][p] = (R.neg s)  --  [-s, c]]
-		let J = J with [q][q] = c
-
-		in J
+	module TQ = mk_householder_thin_qr R
+	module LA = mk_linalg R
 
 	def serial_schedule n =
 		-- TODO: This filter operation sucks; we know the number of indices per sweep too.
 		map (\j -> map (\k -> (j, k)) (iota n)) (iota n) |> flatten |> filter (\(j, k) -> j > k)
 
-	def svd [m][n] (A: [m][n]t): ([m][m]t, [m][n]t, [n][n]t) =
-		let U = L.eye n
-		let V = L.eye n
+	def sweep [l] (U: [l][l]t) (S: [l][l]t) (V: [l][l]t) : ([l][l]t, [l][l]t, [l][l]t) =
+		let svd_2v2_rot a_pp a_pq a_qp a_qq =
+			-- [2x2 Symmetric Schur Decomposition](https://web.stanford.edu/class/cme335/lecture7.pdf)
+			-- We aren't symmetric, so the denominator is a + d.
+			let (cr, sr) =
+				let top = a_qq - a_pp
+				let bot = a_pq + a_qp
+				in if (top == (R.i64 0) && bot == (R.i64 0))
+					then ((R.i64 1), (R.i64 0))
+					else
+						let tau = (R./) top bot
+						let t = ???
+						let c = 1 / sqrt(1 + t^2) 
+						let s = c * t
+			
+		foldl (\(U_i, S_i, V_i) (i, j) ->
+			let a_ii = S[i][i]
+			let a_ij = S[i][j]
+			let a_ji = S[j][i]
+			let a_jj = S[j][j]
+			in ???)
+		(U, S, V) (serial_schedule l)
 
-		let t_k a_k =
-			-- sign(a_k) / (|a_k| + sqrt(1 + a_k^2))
-			(R.sgn a_k) / (R.abs a_k |> (R.+) (R.sqrt ((R.+) (R.i64 1) (R.* a_k a_k))))
+	-- Return (U, S, V^T)
+	def svd_econ [l][n] (A: [l][n]t): ([l][l]t, [l][l]t, [l][n]t) =
 
-		let S = L.matmul (transpose J_l) S
-		let S = L.matmul S J_r
+		-- Following the randomized rangefinder problem `l << n`; we need a square
+		-- matrix before the two-sided jacobi iteration: compute the LQ factorization.
+		-- See [Dongarra](https://icl.utk.edu/files/publications/2018/icl-utk-1341-2018.pdf);
+		-- "if m << n, it is more efficient to perform an LQ factorization of A".
+		-- LQ can be achieved through our `thin_qr` and a transpose.
+		--
+		-- There's a chance where stability doesn't matter and A * A^T is reasonable.
 
-		let U = L.matmul U J_l
-		let V = L.matmul V J_r
+		let (Q, R) = transpose A |> TQ.qr ()     -- `thin_qr([n][l]t)``
+		let (Q, L) = (transpose Q, transpose R)
 
-		-- TODO: Post-processing.
+		-- At this point, we compute the SVD on the matrix `L`, which is `[l][l]t` (square)
+		-- and suitable for a two-sided jacobi.
+
+		-- TODO: We should sweep based on some evaluation of the off-diagonal elements
+		-- and their convergence to zero... instead we'll sweep ten times.
+		let (U, S, V)
+			= loop (U, S, V) = (LA.eye l, L, LA.eye l) for _sweep_num < 10 do
+				sweep U S V
+
+		-- TODO: Sort the singular values?
+		-- TODO: Change all negative singular values to positive.
+		-- TODO: Determine whether this construction of V is correct.
+		let V = LA.matmul (transpose V) Q
 		in (U, S, V)
+
 }
 
--- module randomized_svd (R: real) = {
--- 	let t = R.t
--- 
--- 	-- TODO: This requires a block size; it's perhaps better to implement MGS?
--- 	module QR = mk_block_householder R
--- 
--- 	def svd =
--- 		let Q = randomized_rangefinder f d B
--- 		let C = L.matmul (transpose Q) B
--- 		let (U, S, V) = svd C
--- 		let B_hat = L.matmul Q U |> flip (L.matmul) S |> flip (L.matmul) V
--- 		in ???
--- }
+module type svd = {
+	type t
+	type seed
+	val svd [m][n] : seed -> [m][n]t -> i64 -> ()
+}
+
+module randomized_svd (R: real) (T: rangefinder with t = R.t) : svd with t = R.t = {
+	type t = R.t
+	type seed = T.sk.dist.engine.k
+
+	module L = mk_linalg R
+
+	-- Assuming that m >> n.
+	def svd [m][n] seed (A: [m][n]t) (l: i64) =
+		-- Form `Q = qr_econ(AQ)`. 
+		let Q: [m][l]t = T.rangefinder seed l A
+		-- Form `C = Q*A`, the approximation; note: l <= n.
+		let C: [l][n]t = L.matmul (transpose Q) A
+
+		let (U_hat, S, V): ([l][l]t, [l][m]t, [m][m]t) = ???
+		let U = L.matmul Q U_hat
+		-- in (U, S, V)
+		in ???
+}
