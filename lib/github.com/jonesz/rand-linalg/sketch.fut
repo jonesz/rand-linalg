@@ -109,9 +109,11 @@ module mk_sketch (N: numeric) (D: cbrng_distribution with num.t = N.t) = {
 }
 
 -- | A sketch which utilizes a Gaussian test matrix sampling from  *X ~ N(0, d^-1)*.
-module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t) : sketch = {
-  local module G = gaussian_distribution R T E
-  local module S = mk_sketch R G
+module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T.t) : sketch
+  with dense.left.t  = R.t 
+  with dense.right.t = R.t = {
+  module G = gaussian_distribution R T E
+  module S = mk_sketch R G
 
   local def to_dist d = {mean = R.i64 0, stddev = R.i64 d |> flip (R.**) (R.i64 (-1i64))}
 
