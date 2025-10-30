@@ -14,7 +14,10 @@ test_ste_chebyshev: ste_chebyshev.fut
 test_distribution: test_distribution.fut
 	futhark test $^
 
-clean: rm_sketch_equivalence rm_ste_eps rm_ste_chebyshev rm_test_distribution
+test_svd: test_svd.fut
+	futhark test $^
+
+clean: rm_sketch_equivalence rm_ste_eps rm_ste_chebyshev rm_test_distribution rm_test_svd
 
 rm_sketch_equivalence:
 	$(RM) sketch_equivalence sketch_equivalence.c sketch_equivalence.fut.test_*
@@ -27,3 +30,6 @@ rm_ste_chebyshev:
 
 rm_test_distribution:
 	$(RM) test_distribution test_distribution.c test_distribution.fut.test_*
+
+rm_test_svd:
+	$(RM) test_svd test_svd.c test_svd.fut.test_*
