@@ -6,11 +6,11 @@ import "../../cbrng-fut/cbrng"
 import "tro_matrices"
 import "../../../diku-dk/linalg/linalg"
 
-module G = mk_gaussian_embedding f32 u32 squares32
-module R = mk_rangefinder f32 G.dense.right
-module SVD = randomized_svd f32 R
-module TM = mk_tro f32
-module L = mk_linalg f32
+-- module G = mk_gaussian_embedding f32 u32 squares32
+-- module R = mk_rangefinder f32 G.dense.right
+-- module SVD = randomized_svd f32 R
+-- module TM = mk_tro f32
+-- module L = mk_linalg f32
 
 -- TODO: Figure out how to test this. I've run through the REPL and it works fine.
 

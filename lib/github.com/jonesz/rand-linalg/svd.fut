@@ -1,21 +1,38 @@
 -- | Randomized SVD.
-
-import "rangefinder"
 import "../cbrng-fut/distribution"
 import "../../diku-dk/linalg/linalg"
+import "rangefinder"
 import "qr/qr"
 
-module one_sided_jacobi_serial (R: real) = {
+-- | Randomized SVD.
+module type rsvd = {
+  -- | The underlying distribution this sketches from.
+  module dist: cbrng_distribution
+  -- | The underlying scalar type.
+  type t
+
+  -- | Compute the rsvd for a matrix A with `m >> n`.
+  -- the argument `l` is the target rank `k` + `p` where `p` could be {k, 5, 10}, etc.
+  val rsvd [m] [n] : dist.engine.k -> [m][n]t -> (l: i64) -> ([m][l]t, [l][l]t, [l][n]t)
+}
+
+-- | Compute economical SVD via one-sided Jacobi iterations.
+-- this module is serial; that is, the scheduling for columns is a simple `foldl`.
+module mk_one_sided_jacobi_serial (R: real) : {
+  type t
+  val svd [l] : [l][l]t -> ([l][l]t, [l][l]t, [l][l]t)
+} with t = R.t = {
   type t = R.t
 
-  module TQ = mk_householder_thin_qr R
-  module LA = mk_linalg R
+  local module TQ = mk_householder_thin_qr R
+  local module LA = mk_linalg R
 
   -- [Algorithm 6](https://icl.utk.edu/files/publications/2018/icl-utk-1341-2018.pdf)
   def is_orth bij bii bjj =
     let eps = R.f32 0.01f32 -- TODO: What should eps be?
     in (R.<) (R.abs bij) ((R.*) bii bjj |> R.sqrt |> (R.*) eps)
 
+  -- TODO: Work out a parallel schedule!
  def serial_schedule n =
     -- TODO: This filter operation sucks; we know the number of indices per sweep too.
     map (\j -> map (\k -> (j, k)) (iota n)) (iota n) |> flatten |> filter (\(j, k) -> j > k)
@@ -94,7 +111,7 @@ module one_sided_jacobi_serial (R: real) = {
       ) (S, V, true) (serial_schedule l)
 
   -- | Return (U, S, V^T); Assume that m == n.
-  def svd_econ [n] (A: [n][n]t) : ([n][n]t, [n][n]t, [n][n]t) =
+  def svd [n] (A: [n][n]t) : ([n][n]t, [n][n]t, [n][n]t) =
     -- TODO: We should sweep based on some evaluation of the off-diagonal elements
     -- and their convergence to zero... instead we'll sweep ten times.
     let (US, V, _) =
@@ -110,23 +127,18 @@ module one_sided_jacobi_serial (R: real) = {
     in (U, S, (transpose V))
 }
 
-module type svd = {
-  module dist: cbrng_distribution
-  type t
-  val svd_econ [m] [n] : dist.engine.k -> [m][n]t -> (l: i64) -> ([m][l]t, [l][l]t, [l][n]t)
-}
-
-module randomized_svd (R: real) (T: rangefinder with t = R.t) : svd with t = R.t = {
+module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
   module dist = T.dist
   type t = R.t
 
   module LA = mk_linalg R
   module TQ = mk_householder_thin_qr R
-  module SVD = one_sided_jacobi_serial R
+  module SVD = mk_one_sided_jacobi_serial R
 
   -- Retun (U, S, V^T); Assuming that m >> n.
-  def svd_econ [m] [n] seed (A: [m][n]t) (l: i64) =
-    -- Form `Q = qr_econ(AQ)`.
+  def rsvd [m] [n] seed (A: [m][n]t) (l: i64) =
+
+    -- Compute `Q` with the rangefinder.
     let Q: [m][l]t = T.rangefinder seed l A
     -- Form `C = Q*A`, the approximation; note: l <= n.
     let C: [l][n]t = LA.matmul (transpose Q) A
@@ -138,11 +150,12 @@ module randomized_svd (R: real) (T: rangefinder with t = R.t) : svd with t = R.t
     let (Q_qr, R_qr) : ([n][l]t, [l][l]t) = transpose C |> TQ.qr ()
     let (Q_qr, L_qr) : ([l][n]t, [l][l]t) = (transpose Q_qr, transpose R_qr)
 
-    let (U_hat, S, V_T) = SVD.svd_econ L_qr
+    let (U_hat, S, V_T) = SVD.svd L_qr
 
     -- Revert the LQ transformation.
     let V = LA.matmul V_T Q_qr
     -- Form the SVD..
     let U = LA.matmul Q U_hat
+
     in (U, S, V)
 }
