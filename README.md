@@ -55,8 +55,8 @@ module L = mk_linalg f32
 
 let A_reconstructed = L.matmul U S |> flip (L.matmul) V_T
 ```
+The target rank should be `l <= n`.
 
-At the moment, the rank parameter `l` needs to be larger than both `m` and `n`.
 
 ## References
 
