@@ -1,12 +1,13 @@
 -- | ignore
--- Check whether the STE is within `eps` of the actual trace; the majority
--- of these tests are on diagonal matrices.
 
 import "../ste"
 import "../../cbrng-fut/distribution"
 import "../../cbrng-fut/cbrng"
 import "../../../diku-dk/linalg/linalg"
 import "tro_matrices"
+
+-- Check whether the STE is within `eps` of the actual trace; the majority
+-- of these tests are on diagonal matrices.
 
 module mk_eps_test (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R

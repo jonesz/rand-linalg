@@ -1,12 +1,14 @@
 -- | ignore
--- Test against the chebyshev bound; dependent on the variance of the input,
--- the STE's residual should be less than some computed value 't'.
--- See [Chebyshev's Inequality](https://en.wikipedia.org/wiki/Chebyshev%27s_inequality).
+
 import "../ste"
 import "../../cbrng-fut/cbrng"
 import "../../cbrng-fut/distribution"
 import "../../../diku-dk/linalg/linalg"
 import "tro_matrices"
+
+-- Test against the chebyshev bound; dependent on the variance of the input,
+-- the STE's residual should be less than some computed value 't'.
+-- See [Chebyshev's Inequality](https://en.wikipedia.org/wiki/Chebyshev%27s_inequality).
 
 module mk_chebyshev_rademacher (R: real) (S: ste with t = R.t) = {
   module L = mk_linalg R

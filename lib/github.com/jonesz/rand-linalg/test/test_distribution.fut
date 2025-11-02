@@ -1,4 +1,5 @@
---| ignore
+-- | ignore
+
 import "../distribution"
 import "../../cbrng-fut/cbrng"
 

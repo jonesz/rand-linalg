@@ -1,5 +1,4 @@
 -- | ignore
--- Test that both the `dense` and `oracle` sketches produce the same result.
 
 import "../sketch"
 import "../../cbrng-fut/distribution"
