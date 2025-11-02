@@ -6,10 +6,10 @@ import "qr/qr"
 
 -- | Randomized SVD.
 module type rsvd = {
-  -- | The underlying distribution this sketches from.
-  module dist: cbrng_distribution
   -- | The underlying scalar type.
   type t
+  -- | The underlying distribution this sketches from.
+  module dist: cbrng_distribution
 
   -- | Compute the rsvd for a matrix A with `m >> n`.
   -- the argument `l` is the target rank `k` + `p` where `p` could be {k, 5, 10}, etc.
@@ -159,3 +159,18 @@ module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
 
     in (U, S, V)
 }
+
+import "../cbrng-fut/cbrng"
+import "sketch"
+
+-- | RSVD with Gaussian embeddings and the default rangefinder.
+module mk_rsvd_default (R: real) : rsvd with t = R.t = {
+  local module EMB = mk_gaussian_embedding R u32 squares32
+  local module RSVD = mk_rsvd R (mk_rangefinder_dense_default R EMB.dense.right)
+
+  type t = R.t
+  module dist = RSVD.dist
+
+  def rsvd = RSVD.rsvd
+}
+
