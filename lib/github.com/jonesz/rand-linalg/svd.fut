@@ -110,10 +110,9 @@ module mk_one_sided_jacobi_serial (R: real) : {
                 in (S_k, V_k, and [all_orth, was_orth])
       ) (S, V, true) (serial_schedule l)
 
-  -- | Return (U, S, V^T); Assume that m == n.
+  -- | Return (U, S, V^T).
   def svd [n] (A: [n][n]t) : ([n][n]t, [n][n]t, [n][n]t) =
-    -- TODO: We should sweep based on some evaluation of the off-diagonal elements
-    -- and their convergence to zero... instead we'll sweep ten times.
+    -- Sweep until `all_orth` is true.
     let (US, V, _) =
       loop (US, V, all_orth) = (A, LA.eye n, true) while all_orth do
         sweep US V
