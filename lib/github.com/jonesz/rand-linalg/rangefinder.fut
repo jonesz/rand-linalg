@@ -18,7 +18,7 @@ module type rangefinder_oracle = {
 -- | A randomized rangefinder that computes `Q` for the rangefinder problem.
 -- TODO: Parameterize the Rangefinder with the econ QR.
 -- module mk_rangefinder (D: sketch_right_dense) (QR: {val qr [m] [n] : [m][n]D.t -> ([m][n]D.t, [n][n]D.t)})
-module mk_rangefinder (R: real) (D: sketch_right_dense with t = R.t)
+module mk_rangefinder (R: real) (D: sketch with t = R.t)
   : rangefinder with t = R.t = {
   type t = R.t
   module dist = D.dist
@@ -26,7 +26,7 @@ module mk_rangefinder (R: real) (D: sketch_right_dense with t = R.t)
   local module QR = mk_householder_thin_qr R
 
   def rangefinder [m] [n] seed l (B: [m][n]t) =
-    let Y: [m][l]t = D.sketch seed l B
+    let Y: [m][l]t = D.sketch_rd seed l B
     let (q, _) = QR.qr () Y
     in q
 }
