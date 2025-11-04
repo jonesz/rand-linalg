@@ -20,7 +20,7 @@ test_svd: test_svd.fut
 clean: rm_sketch_equivalence rm_ste_eps rm_ste_chebyshev rm_test_distribution rm_test_svd
 
 rm_sketch_equivalence:
-	$(RM) sketch_equivalence sketch_equivalence.c sketch_equivalence.fut.test_*
+	$(RM) sketch_equivalence sketch_equivalence.c sketch_equivalence.fut.*actual sketch_equivalence.fut.*expected
 
 rm_ste_eps:
 	$(RM) ste_eps ste_eps.c ste_eps.fut.test_*

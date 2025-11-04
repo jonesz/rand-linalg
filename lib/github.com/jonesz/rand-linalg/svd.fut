@@ -165,7 +165,7 @@ import "sketch"
 -- | RSVD with Gaussian embeddings and the default rangefinder.
 module mk_rsvd_default (R: real) : rsvd with t = R.t = {
   local module EMB = mk_gaussian_embedding R u32 squares32
-  local module RSVD = mk_rsvd R (mk_rangefinder_dense_default R EMB.dense.right)
+  local module RSVD = mk_rsvd R (mk_rangefinder_dense_default R EMB)
 
   type t = R.t
   module dist = RSVD.dist
