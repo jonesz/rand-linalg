@@ -14,8 +14,8 @@ test_ste_chebyshev: ste_chebyshev.fut
 test_distribution: test_distribution.fut
 	futhark test $^
 
-test_svd: test_svd.fut
-	futhark test $^
+test_svd: test_svd.fut ../svd.fut
+	futhark test $<
 
 clean: rm_sketch_equivalence rm_ste_eps rm_ste_chebyshev rm_test_distribution rm_test_svd
 

@@ -16,114 +16,81 @@ module type rsvd = {
   val rsvd [m] [n] : dist.engine.k -> [m][n]t -> (l: i64) -> ([m][l]t, [l][l]t, [l][n]t)
 }
 
--- | Compute economical SVD via one-sided Jacobi iterations.
+-- | Compute an economical SVD via one-sided Jacobi iterations.
 -- this module is serial; that is, the scheduling for columns is a simple `foldl`.
-module mk_one_sided_jacobi_serial (R: real) : {
+module mk_one_sided_jacobi_slow (R: real) : {
   type t
   val svd [l] : [l][l]t -> ([l][l]t, [l][l]t, [l][l]t)
 } with t = R.t = {
-  type t = R.t
+	type t = R.t
+	module LA = mk_linalg R
 
-  local module TQ = mk_householder_thin_qr R
-  local module LA = mk_linalg R
+    -- Build the Jacobi rotation matrix.
+	let jacobi (l: i64) (cs: t) (sn: t) (p: i64) (q: i64) =
+		(LA.eye l) with [p, p] = cs
+				   with [p, q] = sn
+				   with [q, p] = sn |> R.neg
+				   with [q, q] = cs
 
-  -- [Algorithm 6](https://icl.utk.edu/files/publications/2018/icl-utk-1341-2018.pdf)
-  def is_orth bij bii bjj =
-    let eps = R.f32 0.01f32 -- TODO: What should eps be?
-    in (R.<) (R.abs bij) ((R.*) bii bjj |> R.sqrt |> (R.*) eps)
+	let serial_schedule l =
+		-- TODO: The `filter` sucks but we should try to move off the serial schedule.
+		map (\j -> map (\k -> (j, k)) (iota l)) (iota l) |> flatten |> filter (\(a, b) -> a < b)
 
-  -- TODO: Work out a parallel schedule!
- def serial_schedule n =
-    -- TODO: This filter operation sucks; we know the number of indices per sweep too.
-    map (\j -> map (\k -> (j, k)) (iota n)) (iota n) |> flatten |> filter (\(j, k) -> j > k)
+    -- | Compute (U, S, V_T).
+	def svd [l] (A: [l][l]t) : ([l][l]t, [l][l]t, [l][l]t) = 
+		-- [Algorithm 6](https://icl.utk.edu/files/publications/2018/icl-utk-1341-2018.pdf)
+		let (A_hat, V) =
+          -- TODO: Check for actual convergence rather than doing X amount of sweeps.
+		  loop (A_k, V_k) = (A, LA.eye l) for _i < 10 do
+			foldl (\(A_k, V_k) (i, j) ->
+				let col_i = A_k[0:, i]
+				let col_j = A_k[0:, j]
 
-  def sweep [l] (S: [l][l]t) (V: [l][l]t) : ([l][l]t, [l][l]t, bool) =
-    -- Compute `(c, s, orth)` for the Jacobi rotation of `S` for columns `i, j`.
-    let core S i j: (R.t, R.t, bool) =
-      let col_i = S[0:, i]
-      let col_j = S[0:, j]
+				let b_ij = LA.dotprod col_i col_j
+				let b_jj = LA.dotprod col_j col_j 
+				let b_ii = LA.dotprod col_i col_i 
 
-      let d_ii = LA.dotprod col_i col_i
-      let d_jj = LA.dotprod col_j col_j
-      let d_ij = LA.dotprod col_i col_j
+				let cond =
+					let eps = R.f32 1e-4f32
+					in (R.>=) (R.abs b_ij) ((R.*) b_jj b_ii |> R.sqrt |> (R.*) eps)
 
-      in if (is_orth d_ij d_ii d_jj |> not)
+				in if cond
+				then
+					-- Compute a 2x2 Schur Decomposition (8.5.2).
+					-- https://math.ecnu.edu.cn/~jypan/Teaching/books/2013%20Matrix%20Computations%204th.pdf
+					let tau = (R.-) b_jj b_ii |> flip (R./) ((R.*) (R.i64 2) b_ij)
+					let t =
+						if (R.>=) tau (R.i64 0)
+						then
+							(R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.+) tau |> (R./) (R.i64 1) 
+						else
+							(R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.-) tau |> (R./) (R.i64 1)
 
-        -- The columns aren't orthogonal; orthogonalize...
-        then
-          let was_orth = false
-          -- [4.2.2 1JAC](www.irisa.fr/sage/bernard/publis/SVD-Chapter06.pdf)
-          let alpha = (R.*) (R.i64 2) d_ij
-          let beta  = d_jj
-          let gamma = (R.+) ((R.*) alpha alpha) ((R.*) beta beta) |> R.sqrt
+					let cs = (R.*) t t |> (R.+) (R.i64 1) |> R.sqrt |> (R./) (R.i64 1)
+					let sn = (R.*) cs t
 
-          in if (R.>) beta (R.i64 0) 
+                    -- TODO: Update specific columns rather than computing the full
+                    -- matmul.
 
-            then
-              let c = (R.*) (R.i64 2) gamma |> (R./) ((R.+) beta gamma) |> R.sqrt 
-              let s = (R.*) (R.i64 2) gamma |> (R.*) c |> (R./) alpha
-              in (c, s, was_orth)
+					let J = jacobi l cs sn i j
+					let A_k = LA.matmul A_k J
+					let V_k = LA.matmul V_k J
 
-            else 
-              let s = (R.*) (R.i64 2) gamma |> (R./) ((R.-) gamma beta) |> R.sqrt
-              let c = (R.*) (R.i64 2) gamma |> (R.*) s |> (R./) alpha
-              in (c, s, was_orth)
+					in (A_k, V_k)
+				else
+					(A_k, V_k)
 
-        -- The columns are orthogonal; pass...
-        else
-          let was_orth = true
-          let c = R.i64 0
-          let s = R.i64 0
-          in (c, s, was_orth)
-      
-    in foldl (\(S_k, V_k, all_orth) (col_i, col_j) ->
-      let (c, s, was_orth) = core S_k col_i col_j
+			) (A_k, V_k) (serial_schedule l)
 
-      in if was_orth
+        -- The singular values are the euclidean norms of each column.
+		let S = transpose A_hat |> map (LA.vecnorm) |> LA.todiag
 
-        -- If the columns were orthogonal, there's no change to the matrices.
-        then (S_k, V_k, and [was_orth, all_orth])
+        -- Compute U; (A_hat = US) == (A_hat * S_inv = U)
+		let U =
+			let S_inv = LA.fromdiag S |> map (\x -> (R./) (R.i64 1) x) |> LA.todiag
+			in LA.matmul A_hat S_inv
 
-        else
-          let S_k_col_i: [l]R.t = S_k[0:, col_i]
-          let S_k_col_j: [l]R.t = S_k[0:, col_j]
-
-          let S_k_col_i_new = map2 (\a b -> (R.+) ((R.*) c a) ((R.*) s b)) S_k_col_i S_k_col_j
-          let S_k_col_j_new = map2 (\a b -> (R.+) ((R.*) s a |> R.neg) ((R.*) c b)) S_k_col_i S_k_col_j
-
-          -- TODO: Dump the copy somehow?
-          let S_k =
-              copy S_k with [0:, col_i] = S_k_col_i_new
-                       with [0:, col_j] = S_k_col_j_new
-
-          let V_k_col_i: [l]R.t = V_k[0:, col_i]
-          let V_k_col_j: [l]R.t = V_k[0:, col_j]
-
-          let V_k_col_i_new = map2 (\a b -> (R.+) ((R.*) c a) ((R.*) s b)) V_k_col_i V_k_col_j
-          let V_k_col_j_new = map2 (\a b -> (R.+) ((R.*) s a |> R.neg) ((R.*) c b)) V_k_col_i V_k_col_j
-
-          -- TODO: Dump the copy somehow?
-          let V_k =
-              copy V_k with [0:, col_i] = V_k_col_i_new
-                       with [0:, col_j] = V_k_col_j_new
-
-                in (S_k, V_k, and [all_orth, was_orth])
-      ) (S, V, true) (serial_schedule l)
-
-  -- | Return (U, S, V^T).
-  def svd [n] (A: [n][n]t) : ([n][n]t, [n][n]t, [n][n]t) =
-    -- Sweep until `all_orth` is true.
-    let (US, V, _) =
-      loop (US, V, all_orth) = (A, LA.eye n, true) while all_orth do
-        sweep US V
-
-    let S_diag = transpose US |> map (LA.vecnorm)
-    let U = transpose US |> map2 (\sigma_i us_i -> LA.vecscale ((R./) (R.i64 1) sigma_i) us_i) S_diag |> transpose
-    let S = LA.todiag S_diag
-
-    -- TODO: Change all negative singular values to positive.
-    -- TODO: Sort the singular values.
-    in (U, S, (transpose V))
+		in (U, S, (transpose V))
 }
 
 module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
@@ -132,7 +99,7 @@ module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
 
   module LA = mk_linalg R
   module TQ = mk_householder_thin_qr R
-  module SVD = mk_one_sided_jacobi_serial R
+  module SVD = mk_one_sided_jacobi_slow R
 
   -- Retun (U, S, V^T); Assuming that m >> n.
   def rsvd [m] [n] seed (A: [m][n]t) (l: i64) =
