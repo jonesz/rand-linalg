@@ -5,6 +5,7 @@ import "../cbrng-fut/cbrng"
 import "../cbrng-fut/distribution"
 import "../../diku-dk/linalg/linalg"
 
+-- | A module to produce left-sketches, right-sketches, etc.
 module type sketch = {
   -- | The underlying scalar.
   type t
@@ -28,6 +29,9 @@ module type sketch = {
   val sketch : dist.engine.k -> (d: i64) -> (n: i64) -> [d][n]t
 }
 
+-- | Produce a sketch module utilizing a `cbrng_distribution` `D`; NOTE: this differs from the
+-- `sketch` type as each function takes a distributional parameter -- the intent is to have
+-- specific embeddings wrap this module.
 local module mk_sketch
   (N: numeric)
   (D: cbrng_distribution with num.t = N.t) = {
@@ -44,22 +48,26 @@ local module mk_sketch
                (transpose B))
         A
 
-    -- | Sketch for the ambient dimensiion `n` and the embedding dimension `d`.
+    -- | Form the `S` test matrix with *ambient* dimension `n` and *embedding* dimension `d`.
     def sketch dist seed d n : [d][n]t =
       tabulate (d * n) (D.rand seed dist) |> unflatten
 
+    -- | A **l**eft **d**ense sketch forming `SA`.
     def sketch_ld [m] [n] dist seed d (A: [m][n]t) : [d][n]t =
       let S: [d][m]t = sketch dist seed d m
       in matmul S A
 
+    -- | A **r**ight **d**ense sketch forming `AS`.
     def sketch_rd [m] [n] dist seed d (A: [m][n]t) : [m][d]t =
       let S: [d][n]t = sketch dist seed d n
       in matmul A (transpose S)
 
+    -- | A **l**eft **o**racle sketch forming `SA`.
     def sketch_lo [m] [n] dist seed d (oracle: [m]t -> [n]t) : [d][n]t =
       let S: [d][m]t = sketch dist seed d m
       in map (oracle) S
 
+    -- | A **r**ight **o**racle sketch forming `AS`.
     def sketch_ro [m] [n] dist seed d (oracle: [n]t -> [m]t) : [m][d]t =
       let S: [d][n]t = sketch dist seed d n
       in map (oracle) S |> transpose
@@ -73,9 +81,9 @@ module mk_gaussian_embedding (R: real) (T: integral) (E: cbrng_engine with t = T
   local module SK = mk_sketch R dist
   local def to_dist d = {mean = R.i64 0, stddev = R.i64 d |> flip (R.**) (R.i64 (-1i64))}
 
-    def sketch_ld seed d = SK.sketch_ld (to_dist d) seed d
-    def sketch_rd seed d = SK.sketch_rd (to_dist d) seed d
-    def sketch_lo seed d = SK.sketch_lo (to_dist d) seed d
-    def sketch_ro seed d = SK.sketch_ro (to_dist d) seed d
-    def sketch seed d = SK.sketch (to_dist d) seed d
+  def sketch_ld seed d = SK.sketch_ld (to_dist d) seed d
+  def sketch_rd seed d = SK.sketch_rd (to_dist d) seed d
+  def sketch_lo seed d = SK.sketch_lo (to_dist d) seed d
+  def sketch_ro seed d = SK.sketch_ro (to_dist d) seed d
+  def sketch seed d = SK.sketch (to_dist d) seed d
 }

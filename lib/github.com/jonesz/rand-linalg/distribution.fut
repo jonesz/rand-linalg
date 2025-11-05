@@ -1,4 +1,4 @@
--- | Distributions useful for randomized operations.
+-- | Distributions useful for random sketches.
 import "../cbrng-fut/cbrng"
 import "../cbrng-fut/distribution"
 import "sketch"
@@ -16,8 +16,11 @@ module mk_random_sparse_signs
   module num = D
 
   type seed = E.k
+
+  -- | A number between [0, 1) (bernoulli `p`).
   type distribution = f32
 
+  -- | Generate a random number given the seed, a bernoulli `p`, and a counter.
   def rand seed p ctr =
     -- Determine the cutoffs for the range `[E.min, E.max]` which correspond to `{0, 1, -1}`.
     let a = (T.-) E.max E.min |> T.to_i64 |> f32.i64 |> (f32.*) (1f32 - p) |> T.f32
