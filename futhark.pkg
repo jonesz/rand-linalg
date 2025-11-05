@@ -1,7 +1,7 @@
 package github.com/jonesz/rand-linalg
 
 require {
-  github.com/diku-dk/linalg 0.6.0 #39eff097509db88ec82bcf9316186d3a147080a6
+  github.com/diku-dk/linalg 0.6.5 #d7e197834b26050add8c8b3d747cf61fa2762bbb
   github.com/diku-dk/cpprandom 1.4.1 #c95459a4f362a56293cbefe71ef8dcb78b7a333e
-  github.com/jonesz/cbrng-fut 0.0.0-20250820222917+16bb3a83cd603ac73d56c976428e81db87818124 #16bb3a83cd603ac73d56c976428e81db87818124
+  github.com/jonesz/cbrng-fut 0.0.0-20251105001647+c421ccb07309b7d3d976c2cf22c914a7491c50ca #c421ccb07309b7d3d976c2cf22c914a7491c50ca
 }
