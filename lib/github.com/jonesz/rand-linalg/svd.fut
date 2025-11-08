@@ -37,51 +37,77 @@ module mk_one_sided_jacobi_slow (R: real) : {
 
 		-- TODO: Stopping criteria should be based on this condition, not number of sweeps.
 		-- This is the convergence formula out of the `utk.edu` Dongarra PDF.
-		let cond =
-			let eps = R.f32 1e-4f32
-			in (R.>=) (R.abs b_ij) ((R.*) b_jj b_ii |> R.sqrt |> (R.*) eps)
+		-- let cond =
+		-- 	let eps = R.f32 1e-4f32
+		-- 	in (R.>=) (R.abs b_ij) ((R.*) b_jj b_ii |> R.sqrt |> (R.*) eps)
 
-		-- TODO: Drop this conditional entirely? If they are orthogonal, do we just get the identity matrix?
-		in if cond
-		then
-			let tau = (R.-) b_jj b_ii |> flip (R./) ((R.*) (R.i64 2) b_ij)
-			-- TODO: This is `sgn` implementation which deviates from Golub.
+		-- TODO: See the note above about stopping criteria.
+		-- in if cond
+		-- then
+			-- See this [algorithm](https://en.wikipedia.org/wiki/Jacobi_rotation#Numerically_stable_computation)
+			let tau = (R.-) b_ii b_jj |> flip (R./) ((R.*) (R.i64 2) b_ij)
 			let t   = (R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.+) (R.abs tau) |> (R./) (R.sgn tau)
 			let cs  = (R.*) t t |> (R.+) (R.i64 1) |> R.sqrt |> (R./) (R.i64 1)
 			let sn  = (R.*) cs t
 			in (cs, sn)
-		else
-			(R.i64 1, R.i64 0)
+
+		-- TODO: See the note above about stopping criteria.
+		-- else
+		--   (R.i64 1, R.i64 0)
+
+	-- Given the Jacobi rotation parameters, compute the new columns; returns these new columns along
+	-- with the entire set of indices to be used in the later `scatter`.
+	-- TODO: If we're pursuing the `[2][l][l]t` structure with `A_k` and `V_k` combined, we're goind
+	-- to dump the index calculation (see below).
+	let new_cols_indices [l] (X: [l][l]t) (cs: t) (sn: t) (i: i64) (j: i64): ([l+l]t, [l+l](i64, i64)) =
+		-- Compute the new columns.
+		let X_col_i_new = map2 (\a b -> (R.+) ((R.*) cs a) ((R.*) sn b)) X[0:, i] X[0:, j]
+		let X_col_j_new = map2 (\a b -> (R.+) ((R.*) sn a |> R.neg) ((R.*) cs b)) X[0:, i] X[0:, j]
+
+		let col_pairs =
+			map (\col -> tabulate l (\row -> (row, col))) [i, j] |> flatten :> [l+l](i64, i64)
+
+		in (X_col_i_new ++ X_col_j_new, col_pairs)
+
 
 	-- A chess round-robin scheduling algorithm; fix the head player, rotate, and then
 	-- pair each player at the ends.
 	let round_robin [l] (xs: [l]i64) : [l]i64 = [0i64] ++ rotate 1 (tail xs) :> [l]i64
 	let pairs [l] (xs: [l]i64) : [l/2i64](i64, i64) =
-		map (\i ->
+		tabulate (l / 2i64) (\i ->
 			-- `0` should pair with `l`, `1` should pair with `l-1`, so forth...
 			let a = drop i xs |> head
 			let b = reverse xs |> drop i |> head
 			in (a, b)
-		) (iota (l / 2i64))
+		)
 
-	-- Compute a single parallel sweep over the entirety of schedule.
-	let parallel_sweep [l] (A_k: [l][l]t) (V_k: [l][l]t) =
+	-- Compute a single parallel sweep over the entirety of a schedule.
+	let parallel_sweep [l] (A_k: *[l][l]t) (V_k: *[l][l]t) =
 		let xs = iota l
 		let (A_k, V_k, _) = 
 			loop (A_k, V_k, xs) = (A_k, V_k, xs) for _cycle < l do
-				let col_pairs = pairs xs
-				let rotations = map (schurr_decomp A_k) col_pairs
+				let col_pairs: [l/2](i64, i64) = pairs xs
+				let rotations: [l/2](t, t)     = map (schurr_decomp A_k) col_pairs
 
-				let J =
-					loop J = (LA.eye l) for ((cs, sn), (p, q)) in (zip rotations col_pairs) do 
-						J with [p, p] = cs
-					  	  with [p, q] = sn
-					  	  with [q, p] = sn |> R.neg
-					  	  with [q, q] = cs
+				-- We now have the rotation for each column pair -- determine the new
+				-- values for the columns in both `A_k` and `V_k`.
 
-				let (A_k, V_k) =
-					let tmp = map (flip (LA.matmul) J) [A_k, V_k]
-					in (tmp[0], tmp[1])
+				let (A_k_col_values, A_k_col_indices, V_k_col_values, V_k_col_indices) =
+					let tmp =
+						map (\X -> map2 (\(cs_i, sn_i) (col_i, col_j) ->
+							new_cols_indices X cs_i sn_i col_i col_j) rotations col_pairs |> unzip) [A_k, V_k]
+					in (flatten tmp[0].0, flatten tmp[0].1, flatten tmp[1].0, flatten tmp[1].1)
+
+				-- TODO: We could store [A_k, V_k] in a single arr (something like [2][l][l]t) and then `scatter_3d` them.
+				-- Would likely be faster. We're already attempting to do something like that in the above calculation
+				-- that computes the new columns/values.
+
+				-- let (A_k, V_k) =
+				--  	let tmp = scatter_3d [A_k, V_k] [A_k_col_indices, V_k_col_indices] [A_k_col_values, V_k_col_values]
+				--  	in (tmp[0], tmp[1])
+
+				let A_k = scatter_2d A_k A_k_col_indices A_k_col_values
+				let V_k = scatter_2d V_k V_k_col_indices V_k_col_values
 
 				in (A_k, V_k, round_robin xs)
 
@@ -91,7 +117,7 @@ module mk_one_sided_jacobi_slow (R: real) : {
 	def svd [l] (A: [l][l]t) : ([l][l]t, [l][l]t, [l][l]t) =
 		let (A_hat, V) =
 			-- TODO: See the note about convergence above. 10~ sweeps should be enough.
-			loop (A_k, V_k) = (A, LA.eye l) for _iter < 10 do
+			loop (A_k, V_k) = (copy A, LA.eye l) for _iter < 10 do
 				parallel_sweep A_k V_k
 
         -- The singular values are the euclidean norms of each column.
