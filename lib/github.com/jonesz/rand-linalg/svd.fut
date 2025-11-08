@@ -16,8 +16,7 @@ module type rsvd = {
   val rsvd [m] [n] : dist.engine.k -> [m][n]t -> (l: i64) -> ([m][l]t, [l][l]t, [l][n]t)
 }
 
--- | Compute an economical SVD via one-sided Jacobi iterations.
--- this module is serial; that is, the scheduling for columns is a simple `foldl`.
+-- | Compute the SVD via one-sided Jacobi iterations.
 module mk_one_sided_jacobi_slow (R: real) : {
   type t
   val svd [l] : [l][l]t -> ([l][l]t, [l][l]t, [l][l]t)
@@ -25,62 +24,75 @@ module mk_one_sided_jacobi_slow (R: real) : {
 	type t = R.t
 	module LA = mk_linalg R
 
-    -- Build the Jacobi rotation matrix.
-	let jacobi (l: i64) (cs: t) (sn: t) (p: i64) (q: i64) =
-		(LA.eye l) with [p, p] = cs
-				   with [p, q] = sn
-				   with [q, p] = sn |> R.neg
-				   with [q, q] = cs
+	-- Compute a 2x2 Schur Decomposition (8.5.2).
+	-- https://math.ecnu.edu.cn/~jypan/Teaching/books/2013%20Matrix%20Computations%204th.pdf
+	let schurr_decomp A_k (i: i64, j: i64) : (t, t) =
+		let col_i = A_k[0:, i]
+		let col_j = A_k[0:, j]
 
-	let serial_schedule l =
-		-- TODO: The `filter` sucks but we should try to move off the serial schedule.
-		map (\j -> map (\k -> (j, k)) (iota l)) (iota l) |> flatten |> filter (\(a, b) -> a < b)
+		-- form b_ij, b_jj, b_ii
+		let (b_ij, b_jj, b_ii) =
+			let tmp = map2 (LA.dotprod) [col_i, col_j, col_i] [col_j, col_j, col_i]
+			in (tmp[0], tmp[1], tmp[2])
+
+		-- TODO: Stopping criteria should be based on this condition, not number of sweeps.
+		-- This is the convergence formula out of the `utk.edu` Dongarra PDF.
+		let cond =
+			let eps = R.f32 1e-4f32
+			in (R.>=) (R.abs b_ij) ((R.*) b_jj b_ii |> R.sqrt |> (R.*) eps)
+
+		-- TODO: Drop this conditional entirely? If they are orthogonal, do we just get the identity matrix?
+		in if cond
+		then
+			let tau = (R.-) b_jj b_ii |> flip (R./) ((R.*) (R.i64 2) b_ij)
+			-- TODO: This is `sgn` implementation which deviates from Golub.
+			let t   = (R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.+) (R.abs tau) |> (R./) (R.sgn tau)
+			let cs  = (R.*) t t |> (R.+) (R.i64 1) |> R.sqrt |> (R./) (R.i64 1)
+			let sn  = (R.*) cs t
+			in (cs, sn)
+		else
+			(R.i64 1, R.i64 0)
+
+	-- A chess round-robin scheduling algorithm; fix the head player, rotate, and then
+	-- pair each player at the ends.
+	let round_robin [l] (xs: [l]i64) : [l]i64 = [0i64] ++ rotate 1 (tail xs) :> [l]i64
+	let pairs [l] (xs: [l]i64) : [l/2i64](i64, i64) =
+		map (\i ->
+			-- `0` should pair with `l`, `1` should pair with `l-1`, so forth...
+			let a = drop i xs |> head
+			let b = reverse xs |> drop i |> head
+			in (a, b)
+		) (iota (l / 2i64))
+
+	-- Compute a single parallel sweep over the entirety of schedule.
+	let parallel_sweep [l] (A_k: [l][l]t) (V_k: [l][l]t) =
+		let xs = iota l
+		let (A_k, V_k, _) = 
+			loop (A_k, V_k, xs) = (A_k, V_k, xs) for _cycle < l do
+				let col_pairs = pairs xs
+				let rotations = map (schurr_decomp A_k) col_pairs
+
+				let J =
+					loop J = (LA.eye l) for ((cs, sn), (p, q)) in (zip rotations col_pairs) do 
+						J with [p, p] = cs
+					  	  with [p, q] = sn
+					  	  with [q, p] = sn |> R.neg
+					  	  with [q, q] = cs
+
+				let (A_k, V_k) =
+					let tmp = map (flip (LA.matmul) J) [A_k, V_k]
+					in (tmp[0], tmp[1])
+
+				in (A_k, V_k, round_robin xs)
+
+		in (A_k, V_k)
 
     -- | Compute (U, S, V_T).
-	def svd [l] (A: [l][l]t) : ([l][l]t, [l][l]t, [l][l]t) = 
-		-- [Algorithm 6](https://icl.utk.edu/files/publications/2018/icl-utk-1341-2018.pdf)
+	def svd [l] (A: [l][l]t) : ([l][l]t, [l][l]t, [l][l]t) =
 		let (A_hat, V) =
-          -- TODO: Check for actual convergence rather than doing X amount of sweeps.
-		  loop (A_k, V_k) = (A, LA.eye l) for _i < 10 do
-			foldl (\(A_k, V_k) (i, j) ->
-				let col_i = A_k[0:, i]
-				let col_j = A_k[0:, j]
-
-				let b_ij = LA.dotprod col_i col_j
-				let b_jj = LA.dotprod col_j col_j 
-				let b_ii = LA.dotprod col_i col_i 
-
-				let cond =
-					let eps = R.f32 1e-4f32
-					in (R.>=) (R.abs b_ij) ((R.*) b_jj b_ii |> R.sqrt |> (R.*) eps)
-
-				in if cond
-				then
-					-- Compute a 2x2 Schur Decomposition (8.5.2).
-					-- https://math.ecnu.edu.cn/~jypan/Teaching/books/2013%20Matrix%20Computations%204th.pdf
-					let tau = (R.-) b_jj b_ii |> flip (R./) ((R.*) (R.i64 2) b_ij)
-					let t =
-						if (R.>=) tau (R.i64 0)
-						then
-							(R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.+) tau |> (R./) (R.i64 1) 
-						else
-							(R.*) tau tau |> (R.+) (R.i64 1) |> R.sqrt |> (R.-) tau |> (R./) (R.i64 1)
-
-					let cs = (R.*) t t |> (R.+) (R.i64 1) |> R.sqrt |> (R./) (R.i64 1)
-					let sn = (R.*) cs t
-
-                    -- TODO: Update specific columns rather than computing the full
-                    -- matmul.
-
-					let J = jacobi l cs sn i j
-					let A_k = LA.matmul A_k J
-					let V_k = LA.matmul V_k J
-
-					in (A_k, V_k)
-				else
-					(A_k, V_k)
-
-			) (A_k, V_k) (serial_schedule l)
+			-- TODO: See the note about convergence above. 10~ sweeps should be enough.
+			loop (A_k, V_k) = (A, LA.eye l) for _iter < 10 do
+				parallel_sweep A_k V_k
 
         -- The singular values are the euclidean norms of each column.
 		let S = transpose A_hat |> map (LA.vecnorm) |> LA.todiag
