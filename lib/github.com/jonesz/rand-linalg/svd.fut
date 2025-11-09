@@ -3,6 +3,7 @@ import "../cbrng-fut/distribution"
 import "../../diku-dk/linalg/linalg"
 import "rangefinder"
 import "qr/qr"
+import "sketch"
 
 -- | Randomized SVD.
 module type rsvd = {
@@ -14,6 +15,33 @@ module type rsvd = {
   -- | Compute the rsvd for a matrix A with `m >> n`.
   -- the argument `l` is the target rank `k` + `p` where `p` could be {k, 5, 10}, etc.
   val rsvd [m] [n] : dist.engine.k -> [m][n]t -> (l: i64) -> ([m][l]t, [l][l]t, [l][n]t)
+}
+
+-- | A randomized turnstile SVD.
+module type rsvd_turnstile = {
+	-- | The underlying scalar type.
+	type t
+	-- | The underlying distribution this sketches from.
+	module dist: cbrng_distribution
+
+	type seeds = (dist.engine.k, dist.engine.k, dist.engine.k, dist.engine.k)
+
+	-- | Initiliaze `X, Y, Z` with sketch size parameter `k` where `r <= k << min(m, n)`.
+	val initialize : (m: i64) -> (n: i64) -> (k: i64) -> (seed: i64)
+		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t, seeds)
+
+	val linear_update_col [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (col: i64) -> (H: [m]t)
+		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+
+	val linear_update_row [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (row: i64) -> (H: [n]t)
+		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+
+	val linear_update_entry [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (idx: (i64, i64)) -> (H: t)
+		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+
+	-- TODO: `r` should be the target rank, which should be a little bit below `k`.
+	val sketchy_svd [m] [n] [k] : seeds -> (X: [k][n]t) -> (Y: [m][k]t) -> (Z: [2 * k][2 * k]t) -> (_r: i64)
+		-> ([m][k]t, [k][k]t, [k][n]t)
 }
 
 -- | Compute the SVD via one-sided Jacobi iterations.
@@ -164,6 +192,113 @@ module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
     in (U, S, V)
 }
 
+module mk_sketchy_svd(R: real) (SK: sketch with t = R.t): rsvd_turnstile with t = R.t = {
+	type t = R.t
+
+	module dist = SK.dist
+	type seeds = (dist.engine.k, dist.engine.k, dist.engine.k, dist.engine.k)
+
+	module LA = mk_linalg R
+  	module TQ = mk_householder_thin_qr R
+  	module SVD = mk_one_sided_jacobi_slow R
+
+	def initialize m n k seed =
+		let X = LA.matzeros k n
+		let Y = LA.matzeros m k
+		let Z = LA.matzeros (2i64 * k) (2i64 * k)
+		let s = (dist.engine.construct seed, dist.engine.construct (seed + 1),
+				 dist.engine.construct (seed + 2), dist.engine.construct (seed + 3))
+		in (X, Y, Z, s)
+
+	-- [Slide 18](https://tropp.caltech.edu/slides/Tro21-SketchySVD-slides.pdf)
+	def linear_update_col [m] [n] [k] (seed: seeds) (X: *[k][n]t) (Y: *[m][k]t) (Z: *[2 * k][2 * k]t) (col: i64) (H: [m]t) =
+		-- X <- X + SEED1 H
+		-- Y <- Y + H SEED2
+		-- Z <- Z + SEED3 H SEED4
+
+		-- X <- X + SEED1 (k x m) * H (m x 1)
+		let X =
+			let omega = SK.sketch seed.0 k m
+			let X_new_col = LA.matvecmul_row omega H |> map2 (R.+) (copy X[0:, col])
+			in X with [0:, col] = X_new_col
+
+		-- Y <- Y + H (m x 1) * SEED2 (n x k)
+		-- NOTE: H is actually [m x n], but we have a single slice of it.
+		let Y =
+			let omega = SK.sketch seed.1 k n |> transpose
+			let Y_new_mat =
+				tabulate_2d m k (\m_i k_i -> (R.*) H[m_i] omega[col, k_i])
+			in LA.matadd Y Y_new_mat
+
+		--      [2 * k][2 * k]   [2*k][m]  [m x 1]t    [n][2*k]
+		-- Z <- Z              + SEED3    * H        * SEED4
+		-- NOTE: H is actually [2 * k][n] after the multiplication. TODO: Does this present an issue?
+		let Z =
+			let omega = SK.sketch seed.2 (2 * k) m 
+			let rho   = SK.sketch seed.3 (2 * k) n |> transpose
+			let Z_new_mat =
+				let left = LA.matvecmul_row omega H
+				in tabulate_2d (2*k) (2*k) (\m_i k_i -> (R.*) left[m_i] rho[col, k_i])
+			in LA.matadd Z Z_new_mat
+
+		in (X, Y, Z)
+
+	def linear_update_row seeds X Y Z idx H =
+		???
+
+	def linear_update_entry seeds X Y Z (idx_row, idx_column) H = 
+		???
+
+	def sketchy_svd [k] [m] [n] (seed: seeds) (X: [k][n]t) (Y: [m][k]t) (Z: [2 * k][2 * k]t) r =
+		let Q: [m][k]t =
+			let (Q, _) = TQ.qr () Y
+			in Q
+
+		let P: [n][k]t =
+			let (P, _) = transpose X |> TQ.qr ()
+			in P
+
+		let C =
+			-- TODO: If we perform the LQ decomposition on the right side,
+			-- we can perform the SVDs on both at the same time.
+			let left =
+				let tmp: [2 * k][k]t = SK.sketch_ld seed.2 (2 * k) Q
+				let (tmp_Q, tmp_R) = TQ.qr () tmp
+				let (U, S, V_T) = SVD.svd tmp_R
+				let S_inv = LA.fromdiag S |>
+					map (\x ->
+						if (R.==) x (R.i64 0)
+							then (R.i64 0)
+							else (R./) (R.i64 1) x
+					)
+				|> LA.todiag
+				let R_inv = LA.matmul (transpose V_T) S_inv |> flip (LA.matmul) (transpose U)
+				in LA.matmul R_inv (transpose tmp_Q)
+
+			let right =
+				let tmp: [k][2 * k]t = SK.sketch_rd seed.3 (2 * k) (transpose P)
+				let (tmp_Q, tmp_R) = transpose tmp |> TQ.qr ()
+				let tmp_L = transpose tmp_R
+
+				let (U, S, V_T) = SVD.svd tmp_L
+				let S_inv = LA.fromdiag S |>
+					map (\x ->
+						if (R.==) x (R.i64 0)
+						then (R.i64 0)
+						else (R./) (R.i64 1) x
+					)
+				|> LA.todiag
+				let R_inv = LA.matmul (transpose V_T) S_inv |> flip (LA.matmul) (transpose U)
+				in LA.matmul tmp_Q R_inv
+
+			in LA.matmul left Z |> flip (LA.matmul) right
+
+		let (U_hat, S_hat, V_T_hat) = SVD.svd C
+		let U = LA.matmul Q U_hat
+		let V_T = LA.matmul P (transpose V_T_hat)
+		in (U, S_hat, (transpose V_T))
+}
+
 import "../cbrng-fut/cbrng"
 import "sketch"
 
@@ -178,3 +313,13 @@ module mk_rsvd_default (R: real) : rsvd with t = R.t = {
   def rsvd = RSVD.rsvd
 }
 
+-- | Turnstile RSVD with Gaussian embeddings.
+module mk_sketchy_svd_default (R: real) : rsvd_turnstile with t = R.t = {
+	type t = R.t
+	local module EMB = mk_gaussian_embedding R u32 squares32
+	local module SKETCHY = mk_sketchy_svd R EMB
+
+	module dist = SKETCHY.dist
+
+	open SKETCHY
+}
