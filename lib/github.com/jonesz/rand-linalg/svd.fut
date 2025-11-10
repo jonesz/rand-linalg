@@ -56,9 +56,7 @@ module mk_one_sided_jacobi_slow (R: real) : {
 		--   (R.i64 1, R.i64 0)
 
 	-- Given the Jacobi rotation parameters, compute the new columns; returns these new columns along
-	-- with the entire set of indices to be used in the later `scatter`.
-	-- TODO: If we're pursuing the `[2][l][l]t` structure with `A_k` and `V_k` combined, we're goind
-	-- to dump the index calculation (see below).
+	-- with the entire set of indices to be used in the later `scatter_2d`.
 	let new_cols_indices [l] (X: [l][l]t) (cs: t) (sn: t) (i: i64) (j: i64): ([l+l]t, [l+l](i64, i64)) =
 		-- Compute the new columns.
 		let X_col_i_new = map2 (\a b -> (R.+) ((R.*) cs a) ((R.*) sn b)) X[0:, i] X[0:, j]
@@ -98,13 +96,10 @@ module mk_one_sided_jacobi_slow (R: real) : {
 							new_cols_indices X cs_i sn_i col_i col_j) rotations col_pairs |> unzip) [A_k, V_k]
 					in (flatten tmp[0].0, flatten tmp[0].1, flatten tmp[1].0, flatten tmp[1].1)
 
-				-- TODO: We could store [A_k, V_k] in a single arr (something like [2][l][l]t) and then `scatter_3d` them.
-				-- Would likely be faster. We're already attempting to do something like that in the above calculation
-				-- that computes the new columns/values.
 
-				-- let (A_k, V_k) =
-				--  	let tmp = scatter_3d [A_k, V_k] [A_k_col_indices, V_k_col_indices] [A_k_col_values, V_k_col_values]
-				--  	in (tmp[0], tmp[1])
+				-- NOTE: It might be tempting to attempt a `scatter_3d` here, combining
+				-- `A_k` and `V_k` into a single `[2][l][l]t` vector; well I tried it
+				-- and it turned out to be slower (see bookmark `osj_scatter_3d`).
 
 				let A_k = scatter_2d A_k A_k_col_indices A_k_col_values
 				let V_k = scatter_2d V_k V_k_col_indices V_k_col_values
