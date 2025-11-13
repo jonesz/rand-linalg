@@ -23,14 +23,21 @@ module mk_random_sparse_signs
   -- | Generate a random number given the seed, a bernoulli `p`, and a counter.
   def rand seed p ctr =
     -- Determine the cutoffs for the range `[E.min, E.max]` which correspond to `{0, 1, -1}`.
-    let a = (T.-) E.max E.min |> T.to_i64 |> f32.i64 |> (f32.*) (1f32 - p) |> T.f32
-    let b = (T.-) E.max E.min |> T.to_i64 |> f32.i64 |> (f32.*) p |> (f32.*) 0.5_f32 |> T.f32 |> (T.+) a
+    let e_min_f32 = T.to_i64 E.min |> f32.i64
+    let range = (T.-) E.max E.min |> T.to_i64 |> f32.i64
+
+    -- We've determned the length of the range -- we need to move the left bound
+    -- to `E.min`.
+    let a_offset = (f32.*) range (1_f32 - p) |> (f32.+) e_min_f32
+    let b_offset = (f32.*) range p |> (f32.*) 0.5_f32 |> (f32.+) a_offset
+
+    let a_offset = T.f32 a_offset
+    let b_offset = T.f32 b_offset
+
     let rnd = E.rand seed ctr
-    in
-      if (T.<=) rnd a
-        then D.i64 0
-        else
-          if (T.<=) rnd b
-         then D.i64 1
-         else D.i64 1 |> D.neg
+    in if (T.<) rnd a_offset
+      then D.i64 0
+      else if (T.<) rnd b_offset
+        then D.i64 1
+        else D.i64 1 |> D.neg
 }
