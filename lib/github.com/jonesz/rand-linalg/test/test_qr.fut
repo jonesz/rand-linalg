@@ -1,6 +1,6 @@
 -- | ignore
 
-import "qr"
+import "../qr/qr"
 import "../../../diku-dk/linalg/linalg"
 
 module H = mk_householder_thin_qr f32
