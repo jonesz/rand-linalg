@@ -1,6 +1,6 @@
 # Random linear algebra package for Futhark
 
-Routines for randomized numerical linear algebra; sketches, randomized rangefinder, rsvd.
+Routines for randomized numerical linear algebra: sketches, randomized rangefinder, rsvd.
 
 ## Installation
 
@@ -16,10 +16,10 @@ $ futhark pkg sync
 
 ```futhark
 import "lib/github.com/jonesz/rand-linalg/svd"
-module OSJS = mk_one_sided_jacobi_slow f32
+module OSJ = mk_one_sided_jacobi f32
 
 let A: [3][3]f32 = [[1, 2, -1], [3, -4, -5], [6, 7, 100]]
-let (U, S, V_T) = OSJS.svd A
+let (U, S, V_T) = OSJ.svd A
 
 -- ([[-0.20220032, 0.9793124, -7.906095e-3],
 --   [0.978168, 0.20155467, -5.0621767e-2],

@@ -46,7 +46,7 @@ module type rsvd_turnstile = {
 }
 
 -- | Compute the SVD via one-sided Jacobi iterations.
-module mk_one_sided_jacobi_slow (R: real) : {
+module mk_one_sided_jacobi (R: real) : {
   type t
   val svd [l] : [l][l]t -> ([l][l]t, [l][l]t, [l][l]t)
 } with t = R.t = {
@@ -161,7 +161,7 @@ module mk_rsvd (R: real) (T: rangefinder with t = R.t) : rsvd with t = R.t = {
 
   module LA = mk_linalg R
   module TQ = mk_householder_thin_qr R
-  module SVD = mk_one_sided_jacobi_slow R
+  module SVD = mk_one_sided_jacobi R
 
   -- Retun (U, S, V^T); Assuming that m >> n.
   def rsvd [m] [n] seed (A: [m][n]t) (l: i64) =
@@ -196,7 +196,7 @@ module mk_sketchy_svd(R: real) (SK: sketch with t = R.t): rsvd_turnstile with t 
 
 	module LA = mk_linalg R
   	module TQ = mk_householder_thin_qr R
-  	module SVD = mk_one_sided_jacobi_slow R
+  	module SVD = mk_one_sided_jacobi R
 
 	def initialize m n k seed =
 		let X = LA.matzeros k n

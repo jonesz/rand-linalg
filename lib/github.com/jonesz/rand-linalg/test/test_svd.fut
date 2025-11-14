@@ -5,34 +5,34 @@ import "tro_matrices"
 import "../../../diku-dk/linalg/linalg"
 
 module LA = mk_linalg f32
-module OSJS = mk_one_sided_jacobi_slow f32
+module OSJS = mk_one_sided_jacobi f32
 module RSVD = mk_rsvd_default f32
 
 -- ==
--- entry: test_orthogonality_U_one_sided_serial_jacobi
+-- entry: test_orthogonality_U_one_sided_jacobi
 -- compiled random input { [10][10]f32 }
 -- output { true }
-entry test_orthogonality_U_one_sided_serial_jacobi [l] (A: [l][l]f32) =
+entry test_orthogonality_U_one_sided_jacobi [l] (A: [l][l]f32) =
  let (U, _, _) = OSJS.svd A
  let U_T_U = LA.matmul (transpose U) U
  let I_l = LA.eye l
  in map2 (\a b -> (f32.-) a b |> f32.abs) (flatten U_T_U) (flatten I_l) |> f32.sum |> (f32.>=) 0.01f32
 
 -- ==
--- entry: test_orthogonality_V_one_sided_serial_jacobi
+-- entry: test_orthogonality_V_one_sided_jacobi
 -- compiled random input { [10][10]f32 }
 -- output { true }
-entry test_orthogonality_V_one_sided_serial_jacobi [l] (A: [l][l]f32) =
+entry test_orthogonality_V_one_sided_jacobi [l] (A: [l][l]f32) =
  let (_, _, V_T) = OSJS.svd A
  let V_T_V = LA.matmul V_T (transpose V_T)
  let I_l = LA.eye l
  in map2 (\a b -> (f32.-) a b |> f32.abs) (flatten V_T_V) (flatten I_l) |> f32.sum |> (f32.>=) 0.01f32
 
 -- ==
--- entry: test_reconstruction_one_sided_serial_jacobi
+-- entry: test_reconstruction_one_sided_jacobi
 -- compiled random input { [10][10]f32 }
 -- output { true }
-entry test_reconstruction_one_sided_serial_jacobi A =
+entry test_reconstruction_one_sided_jacobi A =
  let (U, S, V_T) = OSJS.svd A
  let A_reconstructed = LA.matmul (LA.matmul U S) V_T
  in map2 (\a b -> (f32.-) a b |> f32.abs) (flatten A) (flatten A_reconstructed) |> f32.sum |> (f32.>=) 0.01f32
