@@ -9,6 +9,13 @@ $ futhark pkg add github.com/jonesz/rand-linalg
 $ futhark pkg sync
 ```
 
+## Features
+
+* SVD
+  * A parallel one-sided jacobi algorithm for the SVD.
+  * A randomized SVD procedure for matrices with m >> n.
+  * A turnstile SVD procedure for matrices too large to fit in memory.
+
 ## Examples
 
 #### Compute the SVD of an `[m][m]` matrix (without randomness).
