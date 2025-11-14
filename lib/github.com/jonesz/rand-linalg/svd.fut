@@ -28,19 +28,19 @@ module type rsvd_turnstile = {
 
 	-- | Initiliaze `X, Y, Z` with sketch size parameter `k` where `r <= k << min(m, n)`.
 	val initialize : (m: i64) -> (n: i64) -> (k: i64) -> (seed: i64)
-		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t, seeds)
+		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t, seeds)
 
 	val linear_update_col [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (col: i64) -> (H: [m]t)
-		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t)
 
 	val linear_update_row [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (row: i64) -> (H: [n]t)
-		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t)
 
 	val linear_update_entry [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (idx: (i64, i64)) -> (H: t)
-		-> ([k][n]t, [m][k]t, [2 * k][2 * k]t)
+		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t)
 
 	-- TODO: `r` should be the target rank, which should be a little bit below `k`.
-	val sketchy_svd [m] [n] [k] : seeds -> (X: [k][n]t) -> (Y: [m][k]t) -> (Z: [2 * k][2 * k]t) -> (_r: i64)
+	val sketchy_svd [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (_r: i64)
 		-> ([m][k]t, [k][k]t, [k][n]t)
 }
 
