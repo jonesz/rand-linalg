@@ -30,6 +30,7 @@ module type rsvd_turnstile = {
 	val initialize : (m: i64) -> (n: i64) -> (k: i64) -> (seed: i64)
 		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t, seeds)
 
+	-- | Update the sketch matrices with a column's worth of information.
 	val linear_update_col [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (col: i64) -> (H: [m]t)
 		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t)
 
@@ -40,7 +41,7 @@ module type rsvd_turnstile = {
 		-> (*[k][n]t, *[m][k]t, *[2 * k][2 * k]t)
 
 	-- TODO: `r` should be the target rank, which should be a little bit below `k`.
-	val sketchy_svd [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -> (_r: i64)
+	val sketchy_svd [m] [n] [k] : seeds -> (X: *[k][n]t) -> (Y: *[m][k]t) -> (Z: *[2 * k][2 * k]t) -- -> (_r: i64)
 		-> ([m][k]t, [k][k]t, [k][n]t)
 }
 
@@ -244,7 +245,7 @@ module mk_sketchy_svd(R: real) (SK: sketch with t = R.t): rsvd_turnstile with t 
 	def linear_update_entry seeds X Y Z (idx_row, idx_column) H = 
 		???
 
-	def sketchy_svd [k] [m] [n] (seed: seeds) (X: [k][n]t) (Y: [m][k]t) (Z: [2 * k][2 * k]t) r =
+	def sketchy_svd [k] [m] [n] (seed: seeds) (X: [k][n]t) (Y: [m][k]t) (Z: [2 * k][2 * k]t) =
 		let Q: [m][k]t =
 			let (Q, _) = TQ.qr () Y
 			in Q
